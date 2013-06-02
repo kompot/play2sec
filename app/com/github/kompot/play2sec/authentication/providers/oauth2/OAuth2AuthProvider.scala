@@ -1,0 +1,168 @@
+/*
+ * Copyright (c) 2013.
+ */
+
+package com.github.kompot.play2sec.authentication.providers.oauth2
+
+import play.api.{Logger, Configuration}
+import play.api.mvc.Request
+import org.apache.http.NameValuePair
+import org.apache.http.client.utils.URLEncodedUtils
+import org.apache.http.message.BasicNameValuePair
+import scala.collection.JavaConversions._
+import play.api.libs.ws.{WS, Response}
+import concurrent.Future
+import org.apache.http.client.methods.HttpGet
+import com.github.kompot.play2sec.authentication.user.AuthUserIdentity
+import com.github.kompot.play2sec.authentication.providers.ext
+.ExternalAuthProvider
+import com.github.kompot.play2sec.authentication.providers.password.Case
+import com.github.kompot.play2sec.authentication.exceptions
+.{RedirectUriMismatch, AuthException, AccessDeniedException}
+
+abstract class OAuth2AuthProvider[U <: AuthUserIdentity, I <: OAuth2AuthInfo](app: play.api.Application)
+    extends ExternalAuthProvider(app) {
+
+  override protected def neededSettingKeys = super.neededSettingKeys ++ List(
+    OAuth2AuthProvider.SettingKeys.ACCESS_TOKEN_URL,
+    OAuth2AuthProvider.SettingKeys.AUTHORIZATION_URL,
+    OAuth2AuthProvider.SettingKeys.CLIENT_ID,
+    OAuth2AuthProvider.SettingKeys.CLIENT_SECRET
+  )
+
+  def getAccessTokenParams[A](c: Configuration, code: String, request: Request[A]): String = {
+    import OAuth2AuthProvider._
+
+    val params: List[NameValuePair] = getParams(request, c) ++ List(
+      new BasicNameValuePair(Constants.CLIENT_SECRET, c.getString(SettingKeys.CLIENT_SECRET).get),
+      new BasicNameValuePair(Constants.GRANT_TYPE, Constants.AUTHORIZATION_CODE),
+      new BasicNameValuePair(Constants.CODE, code)
+    )
+
+    URLEncodedUtils.format(params, "UTF-8")
+  }
+
+  def getAccessToken[A](code: String, request: Request[A]): Future[I] = {
+    val c: Configuration = getConfiguration
+    val params = getAccessTokenParams(c, code, request)
+    val url: String = c.getString(OAuth2AuthProvider.SettingKeys.ACCESS_TOKEN_URL).get
+    val headers = ("Content-Type", "application/x-www-form-urlencoded")
+    buildInfo(WS.url(url).withHeaders(headers).post(params))
+  }
+
+  protected def buildInfo(r: Future[Response]): Future[I]
+
+  protected def getAuthUrl[A](request: Request[A], state: String): String = {
+    import OAuth2AuthProvider._
+
+    val c: Configuration = getConfiguration
+
+    val params: List[NameValuePair] = getParams(request, c) ++ List(
+      new BasicNameValuePair(Constants.SCOPE, c.getString(SettingKeys.SCOPE).get),
+      new BasicNameValuePair(Constants.RESPONSE_TYPE, Constants.CODE),
+//      TODO: null? is there any possibility of null
+//      if (state != null) {
+        new BasicNameValuePair(OAuth2AuthProvider.Constants.STATE, state)
+//      }
+    )
+
+    val m: HttpGet = new HttpGet(
+      c.getString(SettingKeys.AUTHORIZATION_URL).get + "?"
+          + URLEncodedUtils.format(params, "UTF-8"))
+
+    m.getURI.toString
+  }
+
+  def getParams[A](request: Request[A], c: Configuration): List[NameValuePair] = {
+    import OAuth2AuthProvider._
+//    val params: List[NameValuePair] = new ArrayList[NameValuePair]();
+//    params.add(new BasicNameValuePair(Constants.CLIENT_ID, c
+//        .getString(SettingKeys.CLIENT_ID)));
+//    params.add(new BasicNameValuePair(Constants.REDIRECT_URI,
+//      getRedirectUrl(request)));
+//    return params;
+    List[NameValuePair](
+      new BasicNameValuePair(Constants.CLIENT_ID, c.getString(SettingKeys.CLIENT_ID).get),
+      new BasicNameValuePair(Constants.REDIRECT_URI, getRedirectUrl(request))
+    )
+  }
+
+  override def authenticate[A](request: Request[A], payload: Option[Case.Value]): Any = {
+    import OAuth2AuthProvider._
+
+    Logger.debug(s"Returned with URL: '$request.uri'")
+
+    val error: String = request.getQueryString(Constants.ERROR).getOrElse(null)
+    val code: String = request.getQueryString(Constants.CODE).getOrElse(null)
+
+    // Attention: facebook does *not* support state that is non-ASCII - not
+    // even encoded.
+    val state: String = request.getQueryString(Constants.STATE).getOrElse(null)
+
+    if (error != null) {
+      if (error.equals(Constants.ACCESS_DENIED)) {
+        throw new AccessDeniedException(getKey)
+      } else if (error.equals(Constants.REDIRECT_URI_MISMATCH)) {
+        Logger.error("You must set the redirect URI for your provider to " +
+            "whatever you defined in your routes file. For " +
+            "this provider it is: '" + getRedirectUrl(request) + "'")
+        throw new RedirectUriMismatch
+      } else {
+        throw new AuthException(error)
+      }
+    } else if (code != null) {
+      // second step in auth process
+//      val info: I =
+
+      transform(getAccessToken(code, request), state)
+//      u
+      // System.out.println(accessToken.getAccessToken());
+    } else {
+      // no auth, yet
+      val url = getAuthUrl(request, state)
+      Logger.debug("generated redirect URL for dialog: " + url)
+      url
+    }
+  }
+
+  /**
+   * This allows custom implementations to enrich an AuthUser object or
+   * provide their own implementation
+   *
+   * @param info
+   * @param state
+   * @return
+   * @throws AuthException
+   */
+  @throws(classOf[AuthException])
+  protected def transform(info: Future[I], state: String): AuthUserIdentity
+}
+
+object OAuth2AuthProvider {
+  object SettingKeys {
+    val AUTHORIZATION_URL = "authorizationUrl"
+    val ACCESS_TOKEN_URL = "accessTokenUrl"
+    val CLIENT_ID = "clientId"
+    val CLIENT_SECRET = "clientSecret"
+    val SCOPE = "scope"
+  }
+
+  object Constants {
+    val CLIENT_ID = "client_id"
+    val CLIENT_SECRET = "client_secret"
+    val REDIRECT_URI = "redirect_uri"
+    val SCOPE = "scope"
+    val RESPONSE_TYPE = "response_type"
+    val STATE = "state"
+    val GRANT_TYPE = "grant_type"
+    val AUTHORIZATION_CODE = "authorization_code"
+    val ACCESS_TOKEN = "access_token"
+    val ERROR = "error"
+    val CODE = "code"
+    val TOKEN_TYPE = "token_type"
+    val EXPIRES_IN = "expires_in"
+    val REFRESH_TOKEN = "refresh_token"
+    val ACCESS_DENIED = "access_denied"
+    val REDIRECT_URI_MISMATCH = "redirect_uri_mismatch"
+  }
+}

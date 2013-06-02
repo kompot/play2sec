@@ -1,0 +1,104 @@
+/*
+ * Copyright (c) 2013.
+ */
+
+package com.github.kompot.play2sec.authentication.providers.oauth1
+
+import play.api.Application
+import play.api.Logger
+
+import play.api.mvc.Request
+import scala._
+import play.api.libs.oauth.OAuth
+import play.api.libs.oauth.ServiceInfo
+import play.api.libs.oauth.RequestToken
+import play.api.libs.oauth.ConsumerKey
+import com.github.kompot.play2sec.authentication.user.AuthUserIdentity
+import com.github.kompot.play2sec.authentication.providers.ext.ExternalAuthProvider
+import com.github.kompot.play2sec.authentication.exceptions.{AuthException, AccessTokenException}
+import com.github.kompot.play2sec.authentication.providers.password.Case
+
+abstract class OAuth1AuthProvider[U <: AuthUserIdentity, I <: OAuth1AuthInfo](app: Application)
+    extends ExternalAuthProvider(app) {
+
+  @throws(classOf[AccessTokenException])
+  def buildInfo(toke: RequestToken): I
+
+  override protected def neededSettingKeys = super.neededSettingKeys ++ List(
+    OAuth1AuthProvider.SettingKeys.ACCESS_TOKEN_URL,
+    OAuth1AuthProvider.SettingKeys.AUTHORIZATION_URL,
+    OAuth1AuthProvider.SettingKeys.REQUEST_TOKEN_URL,
+    OAuth1AuthProvider.SettingKeys.CONSUMER_KEY,
+    OAuth1AuthProvider.SettingKeys.CONSUMER_SECRET
+  )
+
+  override def authenticate[A](request: Request[A], payload: Option[Case.Value]): Any = {
+    import OAuth1AuthProvider._
+
+    val uri = request.uri
+
+    if (Logger.isDebugEnabled) {
+      Logger.debug("Returned with URL: '" + uri + "'")
+    }
+
+    val c = getConfiguration
+
+    val key = new ConsumerKey(
+      c.getString(SettingKeys.CONSUMER_KEY).get,
+      c.getString(SettingKeys.CONSUMER_SECRET).get)
+    val requestTokenURL = c.getString(SettingKeys.REQUEST_TOKEN_URL).get
+    val accessTokenURL = c.getString(SettingKeys.ACCESS_TOKEN_URL).get
+    val authorizationURL = c.getString(SettingKeys.AUTHORIZATION_URL).get
+    val info = new ServiceInfo(requestTokenURL, accessTokenURL, authorizationURL, key)
+    val service = new OAuth(info, true)
+
+    if (uri.contains(Constants.OAUTH_VERIFIER)) {
+      val rtoken = com.github.kompot.play2sec.authentication.removeFromCache(request.session, CACHE_TOKEN).asInstanceOf[Option[RequestToken]]
+      val verifier = request.getQueryString(Constants.OAUTH_VERIFIER).getOrElse(null)
+
+      service.retrieveAccessToken(rtoken.get, verifier).fold(e => {
+        throw new AuthException(e.getLocalizedMessage)
+      }, token => {
+        val i: I = buildInfo(token)
+        transform(i)
+      })
+    } else {
+      val callbackURL = getRedirectUrl(request)
+      service.retrieveRequestToken(callbackURL).fold(e => {
+        throw new AuthException(e.getLocalizedMessage)
+      }, requestToken => {
+        val token = requestToken.token
+        val redirectUrl = service.redirectUrl(token)
+        val session = com.github.kompot.play2sec.authentication.storeInCache(request.session, CACHE_TOKEN, requestToken)
+        (redirectUrl, session)
+      })
+    }
+
+  }
+
+  /**
+   * This allows custom implementations to enrich an AuthUser object or
+   * provide their own implementation
+   */
+  @throws(classOf[AuthException])
+  def transform(identity: I): U
+}
+
+object OAuth1AuthProvider {
+  val CACHE_TOKEN = "pa.oauth1.rtoken"
+
+  object SettingKeys {
+    val REQUEST_TOKEN_URL = "requestTokenUrl"
+    val AUTHORIZATION_URL = "authorizationUrl"
+    val ACCESS_TOKEN_URL = "accessTokenUrl"
+    val CONSUMER_KEY = "consumerKey"
+    val CONSUMER_SECRET = "consumerSecret"
+  }
+
+  object Constants {
+    val OAUTH_TOKEN_SECRET = "oauth_token_secret"
+    val OAUTH_TOKEN = "oauth_token"
+    val OAUTH_VERIFIER = "oauth_verifier"
+  }
+
+}
