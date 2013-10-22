@@ -1,5 +1,17 @@
 /*
- * Copyright (c) 2013.
+ * Copyright 2012-2013 Joscha Feth, Steve Chaloner, Anton Fedchenko
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.github.kompot.play2sec.authentication.providers.oauth1.twitter
@@ -9,21 +21,27 @@ import com.github.kompot.play2sec.authentication.providers.oauth1
 .{BasicOAuth1AuthUser, OAuth1AuthInfo}
 import com.github.kompot.play2sec.authentication.user.{AuthUser,
 LocaleIdentity, PicturedIdentity}
+import play.api.Logger
 
 class TwitterAuthUser(node: JsValue, info: OAuth1AuthInfo)
     extends BasicOAuth1AuthUser(node.\(TwitterAuthUser.Constants.ID).as[Option[Int]].getOrElse(0).toString, info, null)
     with PicturedIdentity with LocaleIdentity {
   import TwitterAuthUser._
 
+  // TODO right now {"errors":[{"message":"The Twitter REST API v1 is no longer
+  // active. Please migrate to API v1.1. https://dev.twitter.com/docs/api/1.1/
+  // overview.","code":68}]} is returned
+//  Logger.warn("TwitterAuthUser node" + node)
+
   // TODO: how to get ID that is set in constructor?
   override def getId = node.\(TwitterAuthUser.Constants.ID).as[Option[Int]].getOrElse(0).toString
   override def getProvider = TwitterAuthProvider.PROVIDER_KEY
   override def getName = node.\(Constants.NAME).as[Option[String]].getOrElse("")
-	def getScreenName = node.\(Constants.SCREEN_NAME).as[Option[String]].getOrElse("")
-	def isVerified = node.\(Constants.VERIFIED).as[Option[Boolean]].getOrElse(false)
+  def getScreenName = node.\(Constants.SCREEN_NAME).as[Option[String]].getOrElse("")
+  def isVerified = node.\(Constants.VERIFIED).as[Option[Boolean]].getOrElse(false)
   override def getPicture = node.\(Constants.PROFILE_IMAGE_URL).as[Option[String]].getOrElse("")
 
-	override def getLocale = AuthUser.getLocaleFromString(node.\(Constants.LOCALE).as[Option[String]].getOrElse("")).get
+  override def getLocale = AuthUser.getLocaleFromString(node.\(Constants.LOCALE).as[Option[String]].getOrElse("")).get
 }
 
 object TwitterAuthUser {

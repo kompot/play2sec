@@ -1,5 +1,17 @@
 /*
- * Copyright (c) 2013.
+ * Copyright 2012-2013 Joscha Feth, Steve Chaloner, Anton Fedchenko
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.github.kompot.play2sec.authorization.scala
@@ -38,8 +50,9 @@ trait DeadboltActions extends Results with BodyParsers {
   }
 
   /**
-   * Restrict access to an action to users that have all the specified roles within a given group.  Each group, which is
-   * an array of strings, is checked in turn.
+   * Restrict access to an action to users that have all the specified roles
+   * within a given group.  Each group, which is an array of strings,
+   * is checked in turn.
    *
    * @param roleGroups
    * @param deadboltHandler
@@ -50,7 +63,7 @@ trait DeadboltActions extends Results with BodyParsers {
   def Restrictions[A](roleGroups: List[Array[String]],
                       deadboltHandler: DeadboltHandler)
                      (action: Action[A]): Action[A] = {
-    Action(action.parser) { implicit request =>
+    Action.async(action.parser) { implicit request =>
 
       def check(subject: Subject, current: Array[String], remaining: List[Array[String]]): Boolean = {
         if (DeadboltAnalyzer.checkRole(subject, current)) true
@@ -114,7 +127,7 @@ trait DeadboltActions extends Results with BodyParsers {
   }
 
   def Dynamic[A, B](zone: Zone, form: Form[B], deadboltHandler: DeadboltHandler)(action: Action[A]): Action[A] = {
-    Action(action.parser) { implicit request =>
+    Action.async(action.parser) { implicit request =>
       deadboltHandler.beforeAuthCheck(request) match {
         case Some(result) => result
         case _ => {
@@ -148,11 +161,12 @@ trait DeadboltActions extends Results with BodyParsers {
     def getPattern(patternValue: String): Pattern =
       Cache.getOrElse("Deadbolt." + patternValue)(java.util.regex.Pattern.compile(patternValue))
 
-    Action(action.parser) {
+    Action.async(action.parser) {
       implicit request =>
         deadboltHandler.beforeAuthCheck(request) match {
           case Some(result) => result
           case _ => {
+            // TODO direct get, might fail, convert to map
             val subject = deadboltHandler.getSubject(request).get
             patternType match {
               case PatternType.EQUALITY => {
@@ -188,7 +202,7 @@ trait DeadboltActions extends Results with BodyParsers {
    * @return
    */
   def SubjectPresent[A](deadboltHandler: DeadboltHandler)(action: Action[A]): Action[A] = {
-    Action(action.parser) { implicit request =>
+    Action.async(action.parser) { implicit request =>
       deadboltHandler.beforeAuthCheck(request) match {
             case Some(result) => result
             case _ => {
@@ -210,7 +224,7 @@ trait DeadboltActions extends Results with BodyParsers {
    * @return
    */
   def SubjectNotPresent[A](deadboltHandler: DeadboltHandler)(action: Action[A]): Action[A] = {
-    Action(action.parser) { implicit request =>
+    Action.async(action.parser) { implicit request =>
       deadboltHandler.beforeAuthCheck(request) match {
             case Some(result) => result
             case _ => {

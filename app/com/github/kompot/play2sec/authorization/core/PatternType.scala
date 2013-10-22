@@ -4,8 +4,6 @@
 
 package com.github.kompot.play2sec.authorization.core
 
-;
-
 /**
  * @author Steve Chaloner (steve@objectify.be)
  */

@@ -14,22 +14,10 @@
  * limitations under the License.
  */
 
-package com.github.kompot.play2sec.authentication.user
+package com.github.kompot.play2sec.authorization.core
 
-import java.util.Locale
+import com.github.kompot.play2sec.authorization.core.models.Permission
 
-trait AuthUserIdentity {
-  def getId: String
-  def getProvider: String
+case class DeadboltPermission(value: String) extends Permission {
+  def getValue = value
 }
-trait EmailIdentity extends AuthUserIdentity { def getEmail: String }
-trait NameIdentity { def getName: String }
-trait BasicIdentity extends EmailIdentity with NameIdentity
-trait ExtendedIdentity extends BasicIdentity {
-  def getFirstName: String
-  def getLastName: String
-  def getGender: String
-}
-trait PicturedIdentity { def getPicture: String }
-trait ProfiledIdentity { def getProfileLink: String }
-trait LocaleIdentity { def getLocale: Locale }

@@ -1,5 +1,17 @@
 /*
- * Copyright (c) 2013.
+ * Copyright 2012-2013 Joscha Feth, Steve Chaloner, Anton Fedchenko
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.github.kompot.play2sec
@@ -14,11 +26,15 @@ import play.api.mvc._
 import play.i18n.Messages
 import scala.Predef.String
 import com.github.kompot.play2sec.authentication.service.UserService
-import com.github.kompot.play2sec.authentication.user.AuthUser
+import com.github.kompot.play2sec.authentication.user.{AuthUserIdentity,
+AuthUser}
 import com.github.kompot.play2sec.authentication.exceptions.AuthException
-import com.github.kompot.play2sec.authentication.providers.password.Case
+import com.github.kompot.play2sec.authentication.providers.password
+.{LoginSignupResult, Case}
 import com.github.kompot.play2sec.authentication.providers.AuthProvider
 import java.util.Date
+import scala.concurrent.{ExecutionContext, Future}
+import ExecutionContext.Implicits.global
 
 package object authentication {
   val SETTING_KEY_PLAY_AUTHENTICATE = "play2sec"
@@ -28,21 +44,24 @@ package object authentication {
   val SETTING_KEY_ACCOUNT_AUTO_LINK = "accountAutoLink"
   val SETTING_KEY_ACCOUNT_AUTO_MERGE = "accountAutoMerge"
 
-  val ORIGINAL_URL = "a-return-url"
-  val USER_KEY = "a-user-id"
-  val PROVIDER_KEY = "a-provider-id"
-  val EXPIRES_KEY = "a-exp"
-  val SESSION_ID_KEY = "a-session-id"
+  val SESSION_PREFIX       = "p2s-"
+  val SESSION_ORIGINAL_URL = SESSION_PREFIX + "return-url"
+  val SESSION_USER_KEY     = SESSION_PREFIX + "user-id"
+  val SESSION_PROVIDER_KEY = SESSION_PREFIX + "provider-id"
+  val SESSION_EXPIRES_KEY  = SESSION_PREFIX + "exp"
+  val SESSION_ID_KEY       = SESSION_PREFIX + "session-id"
 
-  // TODO null
+  val REDIRECT_STATUS = 303
+
+  // TODO null? what is it for?
   val MERGE_USER_KEY: String = null
-  // TODO null
+  // TODO null what is it for?
   val LINK_USER_KEY: String = null
 
   def getConfiguration: Option[Configuration] = application.configuration.getConfig(SETTING_KEY_PLAY_AUTHENTICATE)
 
   // TODO: remove ORIGINAL_URL from session
-  def getOriginalUrl[A](request: Request[A]): Option[String] = request.session.get(ORIGINAL_URL)
+  def getOriginalUrl[A](request: Request[A]): Option[String] = request.session.get(SESSION_ORIGINAL_URL)
 
   def getUserService: UserService = use[PlaySecPlugin].userService
 
@@ -52,18 +71,14 @@ package object authentication {
 
     val withExpiration = u.expires != AuthUser.NO_EXPIRATION
 
-    // TODO: better way to DRY?
     Logger.debug("Will be storing user " + u)
+    val session = request.session +
+        (SESSION_USER_KEY, u.getId) +
+        (SESSION_PROVIDER_KEY, u.getProvider)
     if (withExpiration)
-      request.session +
-        (USER_KEY, u.getId) +
-        (PROVIDER_KEY, u.getProvider) +
-        (EXPIRES_KEY, u.expires.toString)
+      session + (SESSION_EXPIRES_KEY, u.expires.toString)
     else
-      request.session +
-        (USER_KEY, u.getId) +
-        (PROVIDER_KEY, u.getProvider) -
-        (EXPIRES_KEY)
+      session - SESSION_EXPIRES_KEY
   }
 
   /**
@@ -72,28 +87,29 @@ package object authentication {
    * @return
    */
   def isLoggedIn(session: Session): Boolean = {
-    val idAndProviderAreNotEmpty = session.get(USER_KEY).isDefined && session.get(PROVIDER_KEY).isDefined
-    val providerIsRegistered = com.github.kompot.play2sec.authentication.providers.hasProvider(session.get(PROVIDER_KEY).getOrElse(""))
+    val idAndProviderAreNotEmpty = session.get(SESSION_USER_KEY).isDefined && session.get(SESSION_PROVIDER_KEY).isDefined
+    val providerIsRegistered = com.github.kompot.play2sec.authentication.providers.hasProvider(session.get(SESSION_PROVIDER_KEY).getOrElse(""))
 
     def validExpirationTime: Boolean = {
-      if (session.get(EXPIRES_KEY).isDefined) {
+      if (session.get(SESSION_EXPIRES_KEY).isDefined) {
         // expiration is set
         val expires = getExpiration(session)
         if (expires != AuthUser.NO_EXPIRATION) {
           // and the session expires after now
-          return new Date().getTime < expires
+          new Date().getTime < expires
         } else {
           true
         }
+      } else {
+        true
       }
-      true
     }
 
     idAndProviderAreNotEmpty && providerIsRegistered && validExpirationTime
   }
 
   private def getExpiration(session: Session): Long = {
-    session.get(EXPIRES_KEY).map { x =>
+    session.get(SESSION_EXPIRES_KEY).map { x =>
 //      Logger.debug(s"expires key is $x")
       // unknown error "value toLong is not a member of String" when using
       // x.toLong
@@ -124,7 +140,7 @@ package object authentication {
     // cookie
 //    session.$minus(ORIGINAL_URL);
 
-    Results.Redirect(getUrl(use[PlaySecPlugin].afterLogout, SETTING_KEY_AFTER_LOGOUT_FALLBACK), 303).withNewSession
+    Results.Redirect(getUrl(use[PlaySecPlugin].afterLogout, SETTING_KEY_AFTER_LOGOUT_FALLBACK), REDIRECT_STATUS).withNewSession
 //        .withNewSession
 //        .withSession(session - USER_KEY - PROVIDER_KEY - EXPIRES_KEY - ORIGINAL_URL)
   }
@@ -136,7 +152,7 @@ package object authentication {
    * @return
    */
   def getUser(session: Session): Option[AuthUser] = {
-    (session.get(PROVIDER_KEY), session.get(USER_KEY)) match {
+    (session.get(SESSION_PROVIDER_KEY), session.get(SESSION_USER_KEY)) match {
       case (Some(provider), Some(id)) =>
         Some(getProvider(provider).get.getSessionAuthUser(id, getExpiration(session)))
       case _ => None
@@ -144,9 +160,12 @@ package object authentication {
   }
 
   def getUser[A](request: Request[A]): Option[AuthUser] = getUser(request.session)
-  def isAccountAutoMerge = getConfiguration.flatMap(_.getBoolean(SETTING_KEY_ACCOUNT_AUTO_MERGE)).getOrElse(false)
-  def isAccountAutoLink = getConfiguration.flatMap(_.getBoolean(SETTING_KEY_ACCOUNT_AUTO_LINK)).getOrElse(false)
-  def isAccountMergeEnabled = getConfiguration.flatMap(_.getBoolean(SETTING_KEY_ACCOUNT_MERGE_ENABLED)).getOrElse(false)
+  def isAccountAutoMerge    = getConfiguration.flatMap(_.getBoolean(
+    SETTING_KEY_ACCOUNT_AUTO_MERGE)).getOrElse(false)
+  def isAccountAutoLink     = getConfiguration.flatMap(_.getBoolean(
+    SETTING_KEY_ACCOUNT_AUTO_LINK)).getOrElse(false)
+  def isAccountMergeEnabled = getConfiguration.flatMap(_.getBoolean(
+    SETTING_KEY_ACCOUNT_MERGE_ENABLED)).getOrElse(false)
 
   def getUrl(c: Call, settingFallback: String): String = {
     // TODO: should avoid nulls and checking for them
@@ -166,71 +185,91 @@ package object authentication {
   }
 
   // TODO: what is this for?
-  def getProvider(providerKey: String): Option[AuthProvider] = com.github.kompot.play2sec.authentication.providers.get(providerKey)
+  def getProvider(providerKey: String): Option[AuthProvider] =
+    com.github.kompot.play2sec.authentication.providers.get(providerKey)
 //match {
 //    case a.providers.AuthProvider => _
 //    case _ => throw new AuthException("Provider %s is not defined".format(providerKey))
 //  }
 
-  def link(request: Request[AnyContent], link: Boolean): Result = {
+  def link[A](request: Request[A], link: Boolean): Future[SimpleResult] = {
     val linkUser = getLinkUser(request.session)
 
     linkUser match {
       case None => {
         Logger.warn("User to be linked not found.")
-        return Results.Forbidden("User to be linked not found.")
+        return Future.successful(Results.Forbidden("User to be linked not found."))
       }
       case Some(_) =>
     }
 
-    val loginUser: AuthUser =
-      if (link) {
-        // User accepted link - add account to existing local user
-        getUserService.link(getUser(request.session), linkUser.get)
-      } else {
-        // User declined link - create new user
-        try {
-          signupUser(linkUser.get)
-        } catch {
-          case e: AuthException => return Results.InternalServerError(e.getMessage)
-        }
-      }
     removeLinkUser(request.session)
-    loginAndRedirect(request, loginUser)
+    loginAndRedirect(request, linkOrSignupUser(request, link, linkUser))
+  }
+
+  private def linkOrSignupUser[A](request: Request[A], link: Boolean,
+      linkUser: Option[AuthUser]): Future[AuthUser] = {
+    if (link) {
+      // User accepted link - add account to existing local user
+      getUserService.link(getUser(request.session), linkUser.get)
+    } else {
+      // User declined link - create new user
+      try {
+        Future(signupUser(linkUser.get))
+      } catch {
+        case e: AuthException => throw e
+//          return Results.InternalServerError(e.getMessage)
+      }
+    }
   }
 
   def getLinkUser(session: Session): Option[AuthUser] = {
     getUserFromCache(session, LINK_USER_KEY)
   }
 
-  def loginAndRedirect[A](request: Request[A], loginUser: AuthUser): Result = {
+  @deprecated
+  def loginAndRedirect[A](request: Request[A], loginUser: AuthUser): SimpleResult = {
     val newSession = storeUser(request, loginUser)
     // TODO: ajax call, is there a good way to check whether it was ajax request
     if (request.body.isInstanceOf[AnyContentAsJson]) {
-      use[PlaySecPlugin].afterAuthJson(loginUser).withSession(newSession - ORIGINAL_URL)
+      use[PlaySecPlugin].afterAuthJson(loginUser).withSession(newSession - SESSION_ORIGINAL_URL)
     } else {
-      Results.Redirect(getJumpUrl(request), 303).withSession(newSession - ORIGINAL_URL)
+      Results.Redirect(getJumpUrl(request), REDIRECT_STATUS).withSession(newSession - SESSION_ORIGINAL_URL)
     }
   }
 
-  def merge(request: Request[AnyContent], merge: Boolean): Result = {
+  def loginAndRedirect[A](request: Request[A], loginUser: Future[AuthUser]): Future[SimpleResult] = {
+    for {
+      lu <- loginUser
+    } yield {
+      val newSession = storeUser(request, lu)
+      // TODO: ajax call, is there a good way to check whether it was ajax request
+      if (request.body.isInstanceOf[AnyContentAsJson]) {
+        use[PlaySecPlugin].afterAuthJson(lu).withSession(newSession - SESSION_ORIGINAL_URL)
+      } else {
+        Results.Redirect(getJumpUrl(request), REDIRECT_STATUS).withSession(newSession - SESSION_ORIGINAL_URL)
+      }
+    }
+  }
+
+  def merge(request: Request[AnyContent], merge: Boolean): Future[SimpleResult] = {
     val mergeUser = getMergeUser(request.session)
 
     mergeUser match {
       case None => {
         Logger.warn("User to be merged not found.")
-        return Results.Forbidden("User to be merged not found.")
+        return Future.successful(Results.Forbidden("User to be merged not found."))
       }
       case Some(_) =>
     }
 
-    val loginUser: AuthUser = if (merge) {
+    val loginUser: Future[AuthUser] = if (merge) {
       // User accepted merge, so do it
       getUserService.merge(mergeUser.get, getUser(request.session))
     } else {
       // User declined merge, so log out the old user, and log out with
       // the new one
-      mergeUser.get
+      Future(mergeUser.get)
     }
     removeMergeUser(request.session)
     loginAndRedirect(request, loginUser)
@@ -253,6 +292,7 @@ package object authentication {
   }
 
   private def getFromCache(session: Session, key: String): Option[Any] = {
+    // TODO: do not use play cache, use some pluggable api that can be overriden by user
     play.api.cache.Cache.get(getCacheKey(session, key)._1)
   }
 
@@ -275,7 +315,7 @@ package object authentication {
   }
 
   def storeLinkUser(authUser: AuthUser, session: Session) {
-    // TODO the cache is not ideal for this, because
+    // TODO the cache is not good for this
     // it might get cleared any time
     storeUserInCache(session, LINK_USER_KEY, authUser)
   }
@@ -289,7 +329,7 @@ package object authentication {
     session.get(SESSION_ID_KEY).getOrElse(java.util.UUID.randomUUID().toString)
   }
 
-  private def storeUserInCache(session: Session, key: String, authUser: AuthUser) {
+  private def storeUserInCache(session: Session, key: String, authUser: AuthUser) = {
     storeInCache(session, key, authUser)
   }
 
@@ -317,93 +357,104 @@ package object authentication {
     u
   }
 
-  def handleAuthentication[A](provider: String, request: Request[A], payload: Option[Case.Value] = None): Result = {
-    getProvider(provider).map(a => a.authenticate(request, payload)).get match {
-      case r: Result => r
-      case url: String => {
-        Results.Redirect(url, 303)
-      }
-      case (url: String, session: Session) => {
-        Results.Redirect(url, 303).withSession(session)
-      }
-      case None => {
-        Results.NotFound(Messages.get("playauthenticate.core.exception.provider_not_found", provider))
-      }
-      case newUser: AuthUser => {
-        Logger.warn("33333")
-        // We might want to do merging here:
-        // Adapted from:
-        // http://stackoverflow.com/questions/6666267/architecture-for
-        // -merging-multiple-user-accounts-together
-        // 1. The account is linked to a local account and no session
-        // cookie is present --> Login
-        // 2. The account is linked to a local account and a session
-        // cookie is present --> Merge
-        // 3. The account is not linked to a local account and no
-        // session cookie is present --> Signup
-        // 4. The account is not linked to a local account and a session
-        // cookie is present --> Linking Additional account
+  def handleAuthentication[A](provider: String, request: Request[A],
+      payload: Option[Case.Value] = None): Future[SimpleResult] = {
+     for {
+       auth <- getProvider(provider).get.authenticate(request, payload)
+       pu <- processUser(request, auth.authUser.get) if auth.authUser.isDefined
+     } yield {
+       auth match {
+         case LoginSignupResult(Some(result), _, _, _) =>
+           result
+         case LoginSignupResult(_, Some(url), _, Some(session)) =>
+           Results.Redirect(url, REDIRECT_STATUS).withSession(session)
+         case LoginSignupResult(_, Some(url), _, _) =>
+           Results.Redirect(url, REDIRECT_STATUS)
+         case LoginSignupResult(_, _, Some(authUser), _) =>
+           pu
+       }
+     }
+  }
 
+  private def processUser[A](request: Request[A], newUser: AuthUser): Future[SimpleResult] = {
+    Logger.info("User identity found.")
+    // We might want to do merging here:
+    // Adapted from:
+    // http://stackoverflow.com/questions/6666267/architecture-for-merging-multiple-user-accounts-together
+    // 1. The account is     linked to a local account and NO session cookie is present
+    // --> Login
+    // 2. The account is     linked to a local account and  a session cookie is present
+    // --> Merge
+    // 3. The account is NOT linked to a local account and NO session cookie is present
+    // --> Signup
+    // 4. The account is NOT linked to a local account and  a session cookie is present
+    // --> Linking additional account
 
-        // TODO remove var
-        var oldUser = getUser(request.session)
-        val isLoggggedIn: Boolean = isLoggedIn(request.session)
-        val oldIdentity = if (isLoggggedIn) getUserService.getByAuthUserIdentitySync(oldUser.get) else None
-        // TODO: could never fall into this if :(
-        if (isLoggggedIn && oldIdentity == None) {
-          Logger.debug("User is logged in but identity is not found. " +
-              "Probably session has expired. Will log out.")
-          oldUser = None
-          logout(request.session)
+    var oldUser = getUser(request.session)
+    val isLoggggedIn = isLoggedIn(request.session)
+    val b = for {
+      oldIdentity <- if (isLoggggedIn) getUserService.getByAuthUserIdentity(oldUser.get) else Future(None)
+      loginIdentity <- getUserService.getByAuthUserIdentity(newUser)
+    } yield {
+      // TODO: could never fall into this if :(
+      if (isLoggggedIn && oldIdentity == None) {
+        Logger.info("User is logged in but identity is not found. " +
+            "Probably session has expired. Will log out.")
+        oldUser = None
+        logout(request.session)
+      }
+
+      val isLinked = loginIdentity != None
+
+      Logger.info(s"IsLinked: $isLinked, isLoggggedIn: $isLoggggedIn")
+      val loginUser: Future[AuthUser] = (isLinked, isLoggggedIn) match {
+        case (true, false) => {
+          Logger.info("Performing login.")
+          Future(newUser)
         }
-        val loginIdentity = getUserService.getByAuthUserIdentitySync(newUser)
-        val isLinked = loginIdentity != None
-
-        Logger.debug(s"isLinked: $isLinked, isLoggggedIn: $isLoggggedIn")
-        val loginUser: AuthUser = (isLinked, isLoggggedIn) match {
-          case (true, false) => { // login
-            Logger.debug("doing login")
-            newUser
-          }
-          case (true, true) => { // merge
-            Logger.debug("doing merge")
-            if (isAccountMergeEnabled && !loginIdentity.equals(oldIdentity)) {
-              if (isAccountAutoMerge) {
-                Logger.debug("1")
-                getUserService.merge(newUser, oldUser)
-              } else {
-                Logger.debug("2")
-                storeMergeUser(newUser, request.session)
-                return Results.Redirect(use[PlaySecPlugin].askMerge)
-              }
+        case (true, true) => {
+          Logger.info("Performing merge.")
+          if (isAccountMergeEnabled && !loginIdentity.equals(oldIdentity)) {
+            if (isAccountAutoMerge) {
+              Logger.info("Auto merge is active.")
+              getUserService.merge(newUser, oldUser)
             } else {
-              Logger.debug("3")
-              // the currently logged in user and the new login belong
-              // to the same local user,
-              // or Account merge is disabled, so just change the log
-              // in to the new user
-              newUser
+              Logger.info("Auto merge is not active.")
+              storeMergeUser(newUser, request.session)
+              return Future(Results.Redirect(use[PlaySecPlugin].askMerge))
             }
-          }
-          case (false, false) => { // signup
-            Logger.debug("doing signup")
-            signupUser(newUser)
-          }
-          case (false, true) => { // link additional account
-            Logger.debug(s"doing link isAccountAutoLink $isAccountAutoLink")
-            if (isAccountAutoLink) {
-              getUserService.link(oldUser, newUser)
-            } else {
-              storeLinkUser(newUser, request.session)
-              return Results.Redirect(use[PlaySecPlugin].askLink)
-            }
+          } else {
+            Logger.info("Doing nothing, auto merging is not enabled or " +
+                "already logged in with this user.")
+            // the currently logged in user and the new login belong
+            // to the same local user,
+            // or Account merge is disabled, so just change the log
+            // in to the new user
+            Future(newUser)
           }
         }
-        loginAndRedirect(request, loginUser)
+        case (false, false) => {
+          Logger.info("Performing sign up.")
+          Future(signupUser(newUser))
+        }
+        case (false, true) => {
+          if (isAccountAutoLink) {
+            Logger.debug(s"Linking additional account.")
+            getUserService.link(oldUser, newUser)
+          } else {
+            Logger.debug(
+              s"Will not link additional account. Auto linking is disabled.")
+            storeLinkUser(newUser, request.session)
+            return Future(Results.Redirect(use[PlaySecPlugin].askLink))
+          }
+        }
       }
-      case _ => {
-        Results.InternalServerError(Messages.get("playauthenticate.core.exception.general"))
-      }
+      loginAndRedirect(request, loginUser)
     }
+    // TODO mega trash with control flow
+    for {
+      b1 <- b
+      b2 <- b1
+    } yield b2
   }
 }

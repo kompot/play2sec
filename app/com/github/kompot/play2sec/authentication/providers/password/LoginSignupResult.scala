@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
-package com.github.kompot.play2sec.authentication.user
+package com.github.kompot.play2sec.authentication.providers.password
 
-import java.util.Locale
+import play.api.mvc.{SimpleResult, Session, Result}
+import com.github.kompot.play2sec.authentication.user.{AuthUserIdentity,
+AuthUser}
 
-trait AuthUserIdentity {
-  def getId: String
-  def getProvider: String
+case class LoginSignupResult(result: Option[SimpleResult] = None,
+    url: Option[String] = None, authUser: Option[AuthUser] = None,
+    session: Option[Session] = None) {
+
+  def this(result: SimpleResult) = this(Some(result))
+
+  def this(url: String) = this(None, Some(url))
+
+  def this(url: String, session: Session) = this(None, Some(url), None, Some(session))
+
+  def this(authUser: AuthUser) = this(None, None, Some(authUser))
 }
-trait EmailIdentity extends AuthUserIdentity { def getEmail: String }
-trait NameIdentity { def getName: String }
-trait BasicIdentity extends EmailIdentity with NameIdentity
-trait ExtendedIdentity extends BasicIdentity {
-  def getFirstName: String
-  def getLastName: String
-  def getGender: String
-}
-trait PicturedIdentity { def getPicture: String }
-trait ProfiledIdentity { def getProfileLink: String }
-trait LocaleIdentity { def getLocale: Locale }
+

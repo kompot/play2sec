@@ -1,11 +1,22 @@
 /*
- * Copyright (c) 2013.
+ * Copyright 2012-2013 Joscha Feth, Steve Chaloner, Anton Fedchenko
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.github.kompot.play2sec.authentication.providers.ext
 
-import play.api.mvc.{Call, Request}
-import scala.Predef.String
+import play.api.mvc.Request
 import play.api.Play.current
 import com.github.kompot.play2sec.authentication.PlaySecPlugin
 import com.github.kompot.play2sec.authentication.providers.AuthProvider
@@ -16,20 +27,17 @@ abstract class ExternalAuthProvider(app: play.api.Application) extends AuthProvi
   override protected def neededSettingKeys: List[String] = List.empty
 
   private object SettingKeys {
-    val REDIRECT_URI_HOST: String = "redirectUri.host"
-    val REDIRECT_URI_SECURE: String = "redirectUri.secure"
+    val REDIRECT_URI_HOST = "redirectUri.host"
+    val REDIRECT_URI_SECURE = "redirectUri.secure"
   }
 
-  private def useSecureRedirectUri: Boolean = getConfiguration.getBoolean(SettingKeys.REDIRECT_URI_SECURE).getOrElse(false)
-
   protected def getRedirectUrl[A](request: Request[A]): String = {
-    val overrideHost: String = getConfiguration.getString(SettingKeys.REDIRECT_URI_HOST).getOrElse(null)
-    val isHttps: Boolean = useSecureRedirectUri
-    val c: Call = com.typesafe.plugin.use[PlaySecPlugin].auth(getKey)
-    if (overrideHost != null && !overrideHost.trim.isEmpty) {
-      "http" + (if (isHttps) "s" else "") + "://" + overrideHost + c.url
-    } else {
-      c.absoluteURL(isHttps)(request)
+    val overrideHost = getConfiguration.getString(SettingKeys.REDIRECT_URI_HOST)
+    val isHttps = getConfiguration.getBoolean(SettingKeys.REDIRECT_URI_SECURE).getOrElse(false)
+    val c = com.typesafe.plugin.use[PlaySecPlugin].auth(getKey)
+    overrideHost match {
+      case Some(oh) => "http" + (if (isHttps) "s" else "") + "://" + overrideHost + c.url
+      case _        => c.absoluteURL(isHttps)(request)
     }
   }
 }

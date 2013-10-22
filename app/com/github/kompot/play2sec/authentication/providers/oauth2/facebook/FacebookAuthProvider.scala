@@ -1,5 +1,17 @@
 /*
- * Copyright (c) 2013.
+ * Copyright 2012-2013 Joscha Feth, Steve Chaloner, Anton Fedchenko
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.github.kompot.play2sec.authentication.providers.oauth2.facebook
@@ -16,7 +28,9 @@ import ExecutionContext.Implicits.global
 import scala.language.postfixOps
 import com.github.kompot.play2sec.authentication.providers.oauth2
 .OAuth2AuthProvider
-import com.github.kompot.play2sec.authentication.exceptions.AccessTokenException
+import com.github.kompot.play2sec.authentication.exceptions.{AuthException,
+AccessTokenException}
+import play.api.libs.json.JsUndefined
 
 class FacebookAuthProvider(app: play.api.Application) extends OAuth2AuthProvider[FacebookAuthUser, FacebookAuthInfo](app) {
   override def getKey = FacebookAuthProvider.PROVIDER_KEY
@@ -27,9 +41,12 @@ class FacebookAuthProvider(app: play.api.Application) extends OAuth2AuthProvider
       r <- WS
           .url(getConfiguration.getString(FacebookAuthProvider.USER_INFO_URL_SETTING_KEY).get)
           .withQueryString((OAuth2AuthProvider.Constants.ACCESS_TOKEN, fai.accessToken)).get()
-      if r.json.\(OAuth2AuthProvider.Constants.ERROR).toString() == "null"
     } yield {
-      new FacebookAuthUser(r.json, fai, state)
+      if (r.json.\(OAuth2AuthProvider.Constants.ERROR).isInstanceOf[JsUndefined]) {
+        new FacebookAuthUser(r.json, fai, state)
+      } else {
+        throw new AuthException(r.json.\(OAuth2AuthProvider.Constants.ERROR).toString())
+      }
     }
     // TODO: get rid of Await
     Await.result(futureUser, 10 seconds)
@@ -37,9 +54,9 @@ class FacebookAuthProvider(app: play.api.Application) extends OAuth2AuthProvider
 
   protected override def buildInfo(fr: Future[Response]): Future[FacebookAuthInfo] = {
     fr.map { r: Response =>
-//      Logger.warn("status is " + r.status + " -- " + r.json)
-      if (r.status >= 400)
+      if (r.status >= 400) {
         throw new AccessTokenException(r.json.\(FacebookAuthProvider.MESSAGE).toString())
+      }
       val query: String = r.body
       Logger.debug(query)
       val pairs: List[NameValuePair] = URLEncodedUtils.parse(URI.create("/?" + query), "utf-8").toList

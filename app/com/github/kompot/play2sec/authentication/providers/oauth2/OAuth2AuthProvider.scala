@@ -1,5 +1,17 @@
 /*
- * Copyright (c) 2013.
+ * Copyright 2012-2013 Joscha Feth, Steve Chaloner, Anton Fedchenko
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.github.kompot.play2sec.authentication.providers.oauth2
@@ -16,11 +28,13 @@ import org.apache.http.client.methods.HttpGet
 import com.github.kompot.play2sec.authentication.user.AuthUserIdentity
 import com.github.kompot.play2sec.authentication.providers.ext
 .ExternalAuthProvider
-import com.github.kompot.play2sec.authentication.providers.password.Case
+import com.github.kompot.play2sec.authentication.providers.password
+.{LoginSignupResult, Case}
 import com.github.kompot.play2sec.authentication.exceptions
 .{RedirectUriMismatch, AuthException, AccessDeniedException}
+import scala.concurrent.ExecutionContext.Implicits.global
 
-abstract class OAuth2AuthProvider[U <: AuthUserIdentity, I <: OAuth2AuthInfo](app: play.api.Application)
+abstract class OAuth2AuthProvider[U <: BasicOAuth2AuthUser, I <: OAuth2AuthInfo](app: play.api.Application)
     extends ExternalAuthProvider(app) {
 
   override protected def neededSettingKeys = super.neededSettingKeys ++ List(
@@ -43,7 +57,7 @@ abstract class OAuth2AuthProvider[U <: AuthUserIdentity, I <: OAuth2AuthInfo](ap
   }
 
   def getAccessToken[A](code: String, request: Request[A]): Future[I] = {
-    val c: Configuration = getConfiguration
+    val c = getConfiguration
     val params = getAccessTokenParams(c, code, request)
     val url: String = c.getString(OAuth2AuthProvider.SettingKeys.ACCESS_TOKEN_URL).get
     val headers = ("Content-Type", "application/x-www-form-urlencoded")
@@ -87,41 +101,39 @@ abstract class OAuth2AuthProvider[U <: AuthUserIdentity, I <: OAuth2AuthInfo](ap
     )
   }
 
-  override def authenticate[A](request: Request[A], payload: Option[Case.Value]): Any = {
+  override def authenticate[A](request: Request[A], payload: Option[Case.Value]) = {
     import OAuth2AuthProvider._
 
     Logger.debug(s"Returned with URL: '$request.uri'")
 
-    val error: String = request.getQueryString(Constants.ERROR).getOrElse(null)
-    val code: String = request.getQueryString(Constants.CODE).getOrElse(null)
+    val error: Option[String] = request.getQueryString(Constants.ERROR)
+    val code: Option[String] = request.getQueryString(Constants.CODE)
 
     // Attention: facebook does *not* support state that is non-ASCII - not
     // even encoded.
-    val state: String = request.getQueryString(Constants.STATE).getOrElse(null)
+    val state = request.getQueryString(Constants.STATE).getOrElse("")
 
-    if (error != null) {
-      if (error.equals(Constants.ACCESS_DENIED)) {
-        throw new AccessDeniedException(getKey)
-      } else if (error.equals(Constants.REDIRECT_URI_MISMATCH)) {
-        Logger.error("You must set the redirect URI for your provider to " +
-            "whatever you defined in your routes file. For " +
-            "this provider it is: '" + getRedirectUrl(request) + "'")
-        throw new RedirectUriMismatch
-      } else {
-        throw new AuthException(error)
+    (error, code, state) match {
+      case (Some(e), _, _) => {
+        if (error.equals(Constants.ACCESS_DENIED)) {
+          throw new AccessDeniedException(getKey)
+        } else if (error.equals(Constants.REDIRECT_URI_MISMATCH)) {
+          Logger.error("You must set the redirect URI for your provider to " +
+              "whatever you defined in your routes file. For " +
+              "this provider it is: '" + getRedirectUrl(request) + "'")
+          throw new RedirectUriMismatch
+        } else {
+          throw new AuthException(e)
+        }
       }
-    } else if (code != null) {
-      // second step in auth process
-//      val info: I =
-
-      transform(getAccessToken(code, request), state)
-//      u
-      // System.out.println(accessToken.getAccessToken());
-    } else {
-      // no auth, yet
-      val url = getAuthUrl(request, state)
-      Logger.debug("generated redirect URL for dialog: " + url)
-      url
+      case (_, Some(c), _) => Future(new LoginSignupResult(
+        transform(getAccessToken(c, request), state)))
+      case _ => {
+        // no auth, yet
+        val url = getAuthUrl(request, state)
+        Logger.debug("generated redirect URL for dialog: " + url)
+        Future(new LoginSignupResult(url))
+      }
     }
   }
 
@@ -135,7 +147,7 @@ abstract class OAuth2AuthProvider[U <: AuthUserIdentity, I <: OAuth2AuthInfo](ap
    * @throws AuthException
    */
   @throws(classOf[AuthException])
-  protected def transform(info: Future[I], state: String): AuthUserIdentity
+  protected def transform(info: Future[I], state: String): U
 }
 
 object OAuth2AuthProvider {
