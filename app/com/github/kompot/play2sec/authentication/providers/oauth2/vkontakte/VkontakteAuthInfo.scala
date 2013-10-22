@@ -23,7 +23,8 @@ import com.github.kompot.play2sec.authentication.providers.oauth2.OAuth2AuthProv
 
 class VkontakteAuthInfo(node: JsValue) extends OAuth2AuthInfo(
   node.\(Constants.ACCESS_TOKEN).as[Option[String]].getOrElse(""),
-  new Date().getTime + node.\(Constants.EXPIRES_IN).as[Option[Long]].getOrElse(0L) * 1000
+  new Date().getTime + node.\(Constants.EXPIRES_IN).as[Option[Long]]
+    .getOrElse(OAuth2AuthInfo.defaultExpirationInSeconds) * OAuth2AuthInfo.msInS
 ) {
   val bearer = node.\(Constants.TOKEN_TYPE).as[Option[String]].getOrElse("")
   val idToken = node.\("id_token").as[Option[String]].getOrElse("")

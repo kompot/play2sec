@@ -26,6 +26,7 @@ class FacebookAuthUser(node: JsValue, info: FacebookAuthInfo, state: String)
 
   import FacebookAuthUser.Constants._
 
+  val id = node.\(FacebookAuthUser.Constants.ID).as[String]
   val name = node.\(NAME).as[Option[String]].getOrElse("")
   val firstName = node.\(FIRST_NAME).as[Option[String]].getOrElse("")
   val lastName = node.\(LAST_NAME).as[Option[String]].getOrElse("")
@@ -35,23 +36,18 @@ class FacebookAuthUser(node: JsValue, info: FacebookAuthInfo, state: String)
   val email = node.\(EMAIL).as[Option[String]].getOrElse("")
   val verified = node.\(VERIFIED).as[Option[Boolean]].getOrElse(false)
   val timeZone = node.\(TIME_ZONE).as[Option[Int]].getOrElse(0)
-  val locale = node.\(LOCALE).as[Option[String]].getOrElse("")
+  val loc = node.\(LOCALE).as[Option[String]].getOrElse("")
   val updateTime = node.\(UPDATE_TIME).as[Option[String]].getOrElse("")
 
-  override def getProvider = FacebookAuthProvider.PROVIDER_KEY
+  override def provider = FacebookAuthProvider.PROVIDER_KEY
 
-  override def getName = name
-  override def getFirstName = firstName
-  override def getLastName = lastName
-  override def getProfileLink = link
+  override def profileLink = link
   def getUsername = username
-  override def getGender = gender
-  override def getEmail = email
   def isVerified = verified
   def getTimeZone = timeZone
   // According to https://developers.facebook.com/docs/reference/api/#pictures
-  override def getPicture = s"https://graph.facebook.com/$username/picture"
-  override def getLocale = AuthUser.getLocaleFromString(locale).get
+  override def picture = s"https://graph.facebook.com/$username/picture"
+  override def locale = AuthUser.getLocaleFromString(loc).get
   def getUpdateTime = updateTime
 }
 

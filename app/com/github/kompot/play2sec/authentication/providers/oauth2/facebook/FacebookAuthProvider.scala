@@ -58,7 +58,7 @@ class FacebookAuthProvider(app: play.api.Application) extends OAuth2AuthProvider
         throw new AccessTokenException(r.json.\(FacebookAuthProvider.MESSAGE).toString())
       }
       val query: String = r.body
-      Logger.debug(query)
+      Logger.info(query)
       val pairs: List[NameValuePair] = URLEncodedUtils.parse(URI.create("/?" + query), "utf-8").toList
       if (pairs.size < 2) {
         throw new AccessTokenException()

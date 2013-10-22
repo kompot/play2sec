@@ -54,7 +54,7 @@ abstract class OAuth1AuthProvider[U <: BasicOAuth1AuthUser, I <: OAuth1AuthInfo]
     val uri = request.uri
 
     if (Logger.isDebugEnabled) {
-      Logger.debug("Returned with URL: '" + uri + "'")
+      Logger.info("Returned with URL: '" + uri + "'")
     }
 
     val c = getConfiguration

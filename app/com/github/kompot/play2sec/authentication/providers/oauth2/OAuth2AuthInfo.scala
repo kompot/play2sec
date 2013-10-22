@@ -22,3 +22,15 @@ import com.github.kompot.play2sec.authentication.user.AuthUser
 abstract case class OAuth2AuthInfo(accessToken: String, expires: Long) extends AuthInfo {
   def this(accessToken: String) = this(accessToken, AuthUser.NO_EXPIRATION)
 }
+
+object OAuth2AuthInfo {
+  /**
+   * Default expiration in case it was not given.
+   */
+  val defaultExpirationInSeconds = 0L
+
+  /**
+   * Number of millis in one second.
+   */
+  val msInS = 1000
+}

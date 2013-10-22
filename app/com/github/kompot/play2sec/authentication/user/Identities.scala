@@ -19,17 +19,30 @@ package com.github.kompot.play2sec.authentication.user
 import java.util.Locale
 
 trait AuthUserIdentity {
-  def getId: String
-  def getProvider: String
+  def id: String
+  def provider: String
+
+  override def hashCode =
+    41 * (41 + id.hashCode) + provider.hashCode
+
+  override def equals(other: Any) = other match {
+    case that: AuthUserIdentity =>
+      (that canEqual this) &&
+      this.id == that.id &&
+      this.provider == that.provider
+    case _ => false
+  }
+
+  def canEqual(other: Any) = other.isInstanceOf[AuthUserIdentity]
 }
-trait EmailIdentity extends AuthUserIdentity { def getEmail: String }
-trait NameIdentity { def getName: String }
+trait EmailIdentity extends AuthUserIdentity { def email: String }
+trait NameIdentity { def name: String }
 trait BasicIdentity extends EmailIdentity with NameIdentity
 trait ExtendedIdentity extends BasicIdentity {
-  def getFirstName: String
-  def getLastName: String
-  def getGender: String
+  def firstName: String
+  def lastName: String
+  def gender: String
 }
-trait PicturedIdentity { def getPicture: String }
-trait ProfiledIdentity { def getProfileLink: String }
-trait LocaleIdentity { def getLocale: Locale }
+trait PicturedIdentity { def picture: String }
+trait ProfiledIdentity { def profileLink: String }
+trait LocaleIdentity { def locale: Locale }

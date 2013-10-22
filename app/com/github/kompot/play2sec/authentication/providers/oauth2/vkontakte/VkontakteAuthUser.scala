@@ -28,11 +28,11 @@ class VkontakteAuthUser(node: JsValue, info: VkontakteAuthInfo, state: String)
   val firstName = node.\("response")(0).\(VkontakteAuthUser.Constants.FIRST_NAME).as[Option[String]].getOrElse("")
   val lastName =  node.\("response")(0).\(VkontakteAuthUser.Constants.LAST_NAME) .as[Option[String]].getOrElse("")
 
-  override def getProvider = VkontakteAuthProvider.PROVIDER_KEY
+  override def provider = VkontakteAuthProvider.PROVIDER_KEY
 
-  override def getId = node.\("response")(0).\(VkontakteAuthUser.Constants.ID).as[Option[Int]].getOrElse(0).toString
-  def getEmail = ""
-  def getName = lastName + " " + firstName
+  override def id = node.\("response")(0).\(VkontakteAuthUser.Constants.ID).as[Option[Int]].getOrElse(0).toString
+  def email = ""
+  def name = lastName + " " + firstName
   def getFirstName = firstName
   def getLastName = lastName
 }

@@ -34,14 +34,14 @@ class TwitterAuthUser(node: JsValue, info: OAuth1AuthInfo)
 //  Logger.warn("TwitterAuthUser node" + node)
 
   // TODO: how to get ID that is set in constructor?
-  override def getId = node.\(TwitterAuthUser.Constants.ID).as[Option[Int]].getOrElse(0).toString
-  override def getProvider = TwitterAuthProvider.PROVIDER_KEY
-  override def getName = node.\(Constants.NAME).as[Option[String]].getOrElse("")
+  override def id = node.\(TwitterAuthUser.Constants.ID).as[Option[Int]].getOrElse(0).toString
+  override def provider = TwitterAuthProvider.PROVIDER_KEY
+  override def name = node.\(Constants.NAME).as[Option[String]].getOrElse("")
   def getScreenName = node.\(Constants.SCREEN_NAME).as[Option[String]].getOrElse("")
   def isVerified = node.\(Constants.VERIFIED).as[Option[Boolean]].getOrElse(false)
-  override def getPicture = node.\(Constants.PROFILE_IMAGE_URL).as[Option[String]].getOrElse("")
+  override def picture = node.\(Constants.PROFILE_IMAGE_URL).as[Option[String]].getOrElse("")
 
-  override def getLocale = AuthUser.getLocaleFromString(node.\(Constants.LOCALE).as[Option[String]].getOrElse("")).get
+  override def locale = AuthUser.getLocaleFromString(node.\(Constants.LOCALE).as[Option[String]].getOrElse("")).get
 }
 
 object TwitterAuthUser {

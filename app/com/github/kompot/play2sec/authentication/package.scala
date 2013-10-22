@@ -26,8 +26,7 @@ import play.api.mvc._
 import play.i18n.Messages
 import scala.Predef.String
 import com.github.kompot.play2sec.authentication.service.UserService
-import com.github.kompot.play2sec.authentication.user.{AuthUserIdentity,
-AuthUser}
+import com.github.kompot.play2sec.authentication.user.AuthUser
 import com.github.kompot.play2sec.authentication.exceptions.AuthException
 import com.github.kompot.play2sec.authentication.providers.password
 .{LoginSignupResult, Case}
@@ -37,33 +36,34 @@ import scala.concurrent.{ExecutionContext, Future}
 import ExecutionContext.Implicits.global
 
 package object authentication {
-  val SETTING_KEY_PLAY_AUTHENTICATE = "play2sec"
-  val SETTING_KEY_AFTER_AUTH_FALLBACK = "afterAuthFallback"
-  val SETTING_KEY_AFTER_LOGOUT_FALLBACK = "afterLogoutFallback"
-  val SETTING_KEY_ACCOUNT_MERGE_ENABLED = "accountMergeEnabled"
-  val SETTING_KEY_ACCOUNT_AUTO_LINK = "accountAutoLink"
-  val SETTING_KEY_ACCOUNT_AUTO_MERGE = "accountAutoMerge"
+  private val SETTING_KEY_PLAY_AUTHENTICATE = "play2sec"
+  private val SETTING_KEY_AFTER_AUTH_FALLBACK = "afterAuthFallback"
+  private val SETTING_KEY_AFTER_LOGOUT_FALLBACK = "afterLogoutFallback"
+  private val SETTING_KEY_ACCOUNT_MERGE_ENABLED = "accountMergeEnabled"
+  private val SETTING_KEY_ACCOUNT_AUTO_LINK = "accountAutoLink"
+  private val SETTING_KEY_ACCOUNT_AUTO_MERGE = "accountAutoMerge"
 
-  val SESSION_PREFIX       = "p2s-"
-  val SESSION_ORIGINAL_URL = SESSION_PREFIX + "return-url"
-  val SESSION_USER_KEY     = SESSION_PREFIX + "user-id"
-  val SESSION_PROVIDER_KEY = SESSION_PREFIX + "provider-id"
-  val SESSION_EXPIRES_KEY  = SESSION_PREFIX + "exp"
-  val SESSION_ID_KEY       = SESSION_PREFIX + "session-id"
+  private val SESSION_PREFIX       = "p2s-"
+  private val SESSION_ORIGINAL_URL = SESSION_PREFIX + "return-url"
+  private val SESSION_USER_KEY     = SESSION_PREFIX + "user-id"
+  private val SESSION_PROVIDER_KEY = SESSION_PREFIX + "provider-id"
+  private val SESSION_EXPIRES_KEY  = SESSION_PREFIX + "exp"
+  private val SESSION_ID_KEY       = SESSION_PREFIX + "session-id"
 
-  val REDIRECT_STATUS = 303
+  private val REDIRECT_STATUS = 303
 
   // TODO null? what is it for?
-  val MERGE_USER_KEY: String = null
+  private val MERGE_USER_KEY: String = null
   // TODO null what is it for?
-  val LINK_USER_KEY: String = null
+  private val LINK_USER_KEY: String = null
 
   def getConfiguration: Option[Configuration] = application.configuration.getConfig(SETTING_KEY_PLAY_AUTHENTICATE)
 
   // TODO: remove ORIGINAL_URL from session
-  def getOriginalUrl[A](request: Request[A]): Option[String] = request.session.get(SESSION_ORIGINAL_URL)
+  private def getOriginalUrl[A](request: Request[A]): Option[String] =
+    request.session.get(SESSION_ORIGINAL_URL)
 
-  def getUserService: UserService = use[PlaySecPlugin].userService
+  private def getUserService: UserService = use[PlaySecPlugin].userService
 
   def storeUser[A](request: Request[A], authUser: AuthUser): Session = {
     // User logged in once more - wanna make some updates?
@@ -71,10 +71,10 @@ package object authentication {
 
     val withExpiration = u.expires != AuthUser.NO_EXPIRATION
 
-    Logger.debug("Will be storing user " + u)
+    Logger.info("Will be storing user " + u)
     val session = request.session +
-        (SESSION_USER_KEY, u.getId) +
-        (SESSION_PROVIDER_KEY, u.getProvider)
+        (SESSION_USER_KEY, u.id) +
+        (SESSION_PROVIDER_KEY, u.provider)
     if (withExpiration)
       session + (SESSION_EXPIRES_KEY, u.expires.toString)
     else
@@ -110,7 +110,7 @@ package object authentication {
 
   private def getExpiration(session: Session): Long = {
     session.get(SESSION_EXPIRES_KEY).map { x =>
-//      Logger.debug(s"expires key is $x")
+//      Logger.info(s"expires key is $x")
       // unknown error "value toLong is not a member of String" when using
       // x.toLong
       java.lang.Long.parseLong(x)
@@ -131,7 +131,7 @@ package object authentication {
   }
 
   def logout(session: Session): Result = {
-    Logger.debug("Logging out and redirecting to " + getUrl(use[PlaySecPlugin].afterLogout, SETTING_KEY_AFTER_LOGOUT_FALLBACK))
+    Logger.info("Logging out and redirecting to " + getUrl(use[PlaySecPlugin].afterLogout, SETTING_KEY_AFTER_LOGOUT_FALLBACK))
 //    session.$minus(USER_KEY);
 //    session.$minus(PROVIDER_KEY);
 //    session.$minus(EXPIRES_KEY);
@@ -215,7 +215,7 @@ package object authentication {
     } else {
       // User declined link - create new user
       try {
-        Future(signupUser(linkUser.get))
+        signupUser(linkUser.get)
       } catch {
         case e: AuthException => throw e
 //          return Results.InternalServerError(e.getMessage)
@@ -225,17 +225,6 @@ package object authentication {
 
   def getLinkUser(session: Session): Option[AuthUser] = {
     getUserFromCache(session, LINK_USER_KEY)
-  }
-
-  @deprecated
-  def loginAndRedirect[A](request: Request[A], loginUser: AuthUser): SimpleResult = {
-    val newSession = storeUser(request, loginUser)
-    // TODO: ajax call, is there a good way to check whether it was ajax request
-    if (request.body.isInstanceOf[AnyContentAsJson]) {
-      use[PlaySecPlugin].afterAuthJson(loginUser).withSession(newSession - SESSION_ORIGINAL_URL)
-    } else {
-      Results.Redirect(getJumpUrl(request), REDIRECT_STATUS).withSession(newSession - SESSION_ORIGINAL_URL)
-    }
   }
 
   def loginAndRedirect[A](request: Request[A], loginUser: Future[AuthUser]): Future[SimpleResult] = {
@@ -349,12 +338,15 @@ package object authentication {
   }
 
   @throws(scala.Predef.classOf[AuthException])
-  def signupUser(u: AuthUser): AuthUser = {
-    val id = getUserService.save(u)
-    if (id == None) {
-      throw new AuthException(Messages.get("playauthenticate.core.exception.singupuser_failed"))
+  def signupUser(u: AuthUser): Future[AuthUser] = {
+    for {
+      id <- getUserService.save(u)
+    } yield {
+      if (id == None) {
+        throw new AuthException(Messages.get("playauthenticate.core.exception.singupuser_failed"))
+      }
+      u
     }
-    u
   }
 
   def handleAuthentication[A](provider: String, request: Request[A],
@@ -435,14 +427,14 @@ package object authentication {
         }
         case (false, false) => {
           Logger.info("Performing sign up.")
-          Future(signupUser(newUser))
+          signupUser(newUser)
         }
         case (false, true) => {
           if (isAccountAutoLink) {
-            Logger.debug(s"Linking additional account.")
+            Logger.info(s"Linking additional account.")
             getUserService.link(oldUser, newUser)
           } else {
-            Logger.debug(
+            Logger.info(
               s"Will not link additional account. Auto linking is disabled.")
             storeLinkUser(newUser, request.session)
             return Future(Results.Redirect(use[PlaySecPlugin].askLink))

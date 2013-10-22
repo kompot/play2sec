@@ -104,7 +104,7 @@ abstract class OAuth2AuthProvider[U <: BasicOAuth2AuthUser, I <: OAuth2AuthInfo]
   override def authenticate[A](request: Request[A], payload: Option[Case.Value]) = {
     import OAuth2AuthProvider._
 
-    Logger.debug(s"Returned with URL: '$request.uri'")
+    Logger.info(s"Returned with URL: '$request.uri'")
 
     val error: Option[String] = request.getQueryString(Constants.ERROR)
     val code: Option[String] = request.getQueryString(Constants.CODE)
@@ -131,7 +131,7 @@ abstract class OAuth2AuthProvider[U <: BasicOAuth2AuthUser, I <: OAuth2AuthInfo]
       case _ => {
         // no auth, yet
         val url = getAuthUrl(request, state)
-        Logger.debug("generated redirect URL for dialog: " + url)
+        Logger.info("generated redirect URL for dialog: " + url)
         Future(new LoginSignupResult(url))
       }
     }

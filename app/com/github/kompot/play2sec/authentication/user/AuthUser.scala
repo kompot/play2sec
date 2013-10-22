@@ -22,34 +22,7 @@ import org.apache.commons.lang3.LocaleUtils
 trait AuthUser extends AuthUserIdentity {
   def expires = AuthUser.NO_EXPIRATION
 
-  override def toString = s"$getId@$getProvider"
-
-  override def hashCode(): Int = {
-    val prime = 31
-    val result: Int = prime + (if (getId == null) 0 else getId.hashCode)
-    prime * result + (if (getProvider == null) 0 else getProvider.hashCode)
-  }
-
-  override def equals(obj: Any): Boolean = {
-    if (this == obj)
-      return true
-    if (obj == null)
-      return false
-    if (getClass != obj.getClass)
-      return false
-    val other = obj.asInstanceOf[AuthUserIdentity]
-    if (getId == null) {
-      if (other.getId != null)
-        return false
-    } else if (!getId.equals(other.getId))
-      return false
-    if (getProvider == null) {
-      if (other.getProvider != null)
-        return false
-    } else if (!getProvider.equals(other.getProvider))
-      return false
-    true
-  }
+  override def toString = s"$id@$provider"
 }
 
 object AuthUser {

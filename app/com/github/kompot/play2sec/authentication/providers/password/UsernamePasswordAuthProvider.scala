@@ -174,12 +174,12 @@ abstract class UsernamePasswordAuthProvider[V, UL <: UsernamePasswordAuthUser,
     val subject = getResetPasswordEmailMailingSubject(user, request)
     val record = generateResetPasswordVerificationRecord(user)
     val body = getResetPasswordEmailMailingBody(record, user, request)
-    mailService.sendMail(subject, Array(getEmailName(user.getEmail, "")), body)
+    mailService.sendMail(subject, Array(getEmailName(user.email, "")), body)
   }
 
   def getEmailName(user: US): String = {
-    val name = if (user.isInstanceOf[NameIdentity]) user.asInstanceOf[NameIdentity].getName else ""
-    getEmailName(user.getEmail, name)
+    val name = if (user.isInstanceOf[NameIdentity]) user.asInstanceOf[NameIdentity].name else ""
+    getEmailName(user.email, name)
   }
 
   def getEmailName(email: String, name: String): String = mailService.getEmailName(email, name)

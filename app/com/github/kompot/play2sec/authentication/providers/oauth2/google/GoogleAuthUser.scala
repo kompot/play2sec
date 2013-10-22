@@ -34,21 +34,15 @@ class GoogleAuthUser(node: JsValue, info: GoogleAuthInfo, state: String)
   val lastName =        node.\(GoogleAuthUser.Constants.LAST_NAME)        .as[Option[String]].getOrElse("")
   val picture =         node.\(GoogleAuthUser.Constants.PICTURE)          .as[Option[String]].getOrElse("")
   val gender =          node.\(GoogleAuthUser.Constants.GENDER)           .as[Option[String]].getOrElse("")
-  val locale =          node.\(GoogleAuthUser.Constants.LOCALE)           .as[Option[String]].getOrElse("")
+  val loc =             node.\(GoogleAuthUser.Constants.LOCALE)           .as[Option[String]].getOrElse("")
   val link =            node.\(GoogleAuthUser.Constants.LINK)             .as[Option[String]].getOrElse("")
 
-  override def getProvider = GoogleAuthProvider.PROVIDER_KEY
+  override def provider = GoogleAuthProvider.PROVIDER_KEY
 
-  override def getId = node.\(GoogleAuthUser.Constants.ID).as[Option[String]].getOrElse("")
-  def getEmail = email
+  override def id = node.\(GoogleAuthUser.Constants.ID).as[Option[String]].getOrElse("")
   def isEmailVerified = emailIsVerified
-  def getName = name
-  def getFirstName = firstName
-  def getLastName = lastName
-  def getPicture = picture
-  def getGender = gender
-  def getProfileLink = link
-  def getLocale = AuthUser.getLocaleFromString(locale).get
+  def profileLink = link
+  def locale = AuthUser.getLocaleFromString(loc).get
 }
 
 object GoogleAuthUser {

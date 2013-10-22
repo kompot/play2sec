@@ -20,10 +20,10 @@ import org.mindrot.jbcrypt.BCrypt
 import play.api.Logger
 import com.github.kompot.play2sec.authentication.user.{EmailIdentity, AuthUser}
 
-abstract class UsernamePasswordAuthUser(clearPassword: String, email: String) extends AuthUser with EmailIdentity {
-  override def getEmail = email
-  override def getId = email
-  override def getProvider = UsernamePasswordAuthProvider.PROVIDER_KEY
+abstract class UsernamePasswordAuthUser(clearPassword: String, email: String)
+    extends AuthUser with EmailIdentity {
+  override def id = email
+  override def provider = UsernamePasswordAuthProvider.PROVIDER_KEY
 
   def getHashedPassword: String = {
     createPassword(clearPassword)
@@ -44,7 +44,7 @@ abstract class UsernamePasswordAuthUser(clearPassword: String, email: String) ex
     if (hashed == null || candidate == null || hashed == None) {
       false
     } else {
-      Logger.debug(s"hashed $hashed candidate $candidate")
+      Logger.info(s"hashed $hashed candidate $candidate")
       BCrypt.checkpw(candidate, hashed.get)
     }
   }
