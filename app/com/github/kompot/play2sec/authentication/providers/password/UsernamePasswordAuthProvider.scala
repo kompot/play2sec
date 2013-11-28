@@ -55,7 +55,7 @@ abstract class UsernamePasswordAuthProvider[V, UL <: UsernamePasswordAuthUser,
       case Some(Case.LOGIN)            => processLogin(request)
       case Some(Case.RECOVER_PASSWORD) => processRecover(request)
       case _ => {
-        Future(new LoginSignupResult(com.typesafe.plugin.use[PlaySecPlugin].login.url))
+        Future.successful(new LoginSignupResult(com.typesafe.plugin.use[PlaySecPlugin].login.url))
       }
     }
 
@@ -65,11 +65,11 @@ abstract class UsernamePasswordAuthProvider[V, UL <: UsernamePasswordAuthUser,
     val authUser: UR = buildResetPasswordAuthUser(login, request)
     sendResetPasswordEmail(request, authUser)
     if (request.body.isInstanceOf[AnyContentAsJson]) {
-      Future(new LoginSignupResult(onSuccessfulRecoverPasswordJson()))
+      Future.successful(new LoginSignupResult(onSuccessfulRecoverPasswordJson()))
     } else {
       // TODO where to redirect?
       // userUnverified(authUser).url
-      Future(new LoginSignupResult("/"))
+      Future.successful(new LoginSignupResult("/"))
     }
   }
 
@@ -178,7 +178,10 @@ abstract class UsernamePasswordAuthProvider[V, UL <: UsernamePasswordAuthUser,
   }
 
   def getEmailName(user: US): String = {
-    val name = if (user.isInstanceOf[NameIdentity]) user.asInstanceOf[NameIdentity].name else ""
+    val name = user match {
+      case identity: NameIdentity => identity.name
+      case _ => ""
+    }
     getEmailName(user.email, name)
   }
 

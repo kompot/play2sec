@@ -78,7 +78,7 @@ abstract class OAuth1AuthProvider[U <: BasicOAuth1AuthUser, I <: OAuth1AuthInfo]
         val i: I = buildInfo(token)
         transform(i)
       })
-      Future(new LoginSignupResult(b))
+      Future.successful(new LoginSignupResult(b))
     } else {
       val callbackURL = getRedirectUrl(request)
       val res = service.retrieveRequestToken(callbackURL).fold(e => {
@@ -89,7 +89,7 @@ abstract class OAuth1AuthProvider[U <: BasicOAuth1AuthUser, I <: OAuth1AuthInfo]
         val session = com.github.kompot.play2sec.authentication.storeInCache(request.session, CACHE_TOKEN, requestToken)
         (redirectUrl, session)
       })
-      Future(new LoginSignupResult(res._1, res._2))
+      Future.successful(new LoginSignupResult(res._1, res._2))
     }
 
   }

@@ -126,13 +126,13 @@ abstract class OAuth2AuthProvider[U <: BasicOAuth2AuthUser, I <: OAuth2AuthInfo]
           throw new AuthException(e)
         }
       }
-      case (_, Some(c), _) => Future(new LoginSignupResult(
+      case (_, Some(c), _) => Future.successful(new LoginSignupResult(
         transform(getAccessToken(c, request), state)))
       case _ => {
         // no auth, yet
         val url = getAuthUrl(request, state)
         Logger.info("generated redirect URL for dialog: " + url)
-        Future(new LoginSignupResult(url))
+        Future.successful(new LoginSignupResult(url))
       }
     }
   }

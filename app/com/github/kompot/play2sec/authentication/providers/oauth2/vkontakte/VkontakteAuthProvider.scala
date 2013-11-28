@@ -62,6 +62,9 @@ class VkontakteAuthProvider(app: Application)
     for {
       r <- fr
     } yield {
+      if (r.status != 200) {
+        throw new AccessTokenException("Unable to create GoogleAuthInfo from response " + r)
+      }
       val err = r.json.\(OAuth2AuthProvider.Constants.ERROR).as[Option[String]].getOrElse(null)
       if (err != null) {
         throw new AccessTokenException(err)

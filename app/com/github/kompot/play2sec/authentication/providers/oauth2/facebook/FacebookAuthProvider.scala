@@ -54,7 +54,7 @@ class FacebookAuthProvider(app: play.api.Application) extends OAuth2AuthProvider
 
   protected override def buildInfo(fr: Future[Response]): Future[FacebookAuthInfo] = {
     fr.map { r: Response =>
-      if (r.status >= 400) {
+      if (r.status != 200) {
         throw new AccessTokenException(r.json.\(FacebookAuthProvider.MESSAGE).toString())
       }
       val query: String = r.body

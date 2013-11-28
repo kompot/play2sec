@@ -32,7 +32,7 @@ import com.github.kompot.play2sec.authentication.providers.password
 .{LoginSignupResult, Case}
 import com.github.kompot.play2sec.authentication.providers.AuthProvider
 import java.util.Date
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import ExecutionContext.Implicits.global
 
 package object authentication {
@@ -44,7 +44,7 @@ package object authentication {
   private val SETTING_KEY_ACCOUNT_AUTO_MERGE = "accountAutoMerge"
 
   private val SESSION_PREFIX       = "p2s-"
-  private val SESSION_ORIGINAL_URL = SESSION_PREFIX + "return-url"
+  val SESSION_ORIGINAL_URL         = SESSION_PREFIX + "return-url"
   private val SESSION_USER_KEY     = SESSION_PREFIX + "user-id"
   private val SESSION_PROVIDER_KEY = SESSION_PREFIX + "provider-id"
   private val SESSION_EXPIRES_KEY  = SESSION_PREFIX + "exp"
@@ -63,7 +63,7 @@ package object authentication {
   private def getOriginalUrl[A](request: Request[A]): Option[String] =
     request.session.get(SESSION_ORIGINAL_URL)
 
-  private def getUserService: UserService = use[PlaySecPlugin].userService
+  def getUserService: UserService = use[PlaySecPlugin].userService
 
   def storeUser[A](request: Request[A], authUser: AuthUser): Session = {
     // User logged in once more - wanna make some updates?
@@ -258,7 +258,7 @@ package object authentication {
     } else {
       // User declined merge, so log out the old user, and log out with
       // the new one
-      Future(mergeUser.get)
+      Future.successful(mergeUser.get)
     }
     removeMergeUser(request.session)
     loginAndRedirect(request, loginUser)
@@ -353,7 +353,6 @@ package object authentication {
       payload: Option[Case.Value] = None): Future[SimpleResult] = {
      for {
        auth <- getProvider(provider).get.authenticate(request, payload)
-       pu <- processUser(request, auth.authUser.get) if auth.authUser.isDefined
      } yield {
        auth match {
          case LoginSignupResult(Some(result), _, _, _) =>
@@ -362,8 +361,11 @@ package object authentication {
            Results.Redirect(url, REDIRECT_STATUS).withSession(session)
          case LoginSignupResult(_, Some(url), _, _) =>
            Results.Redirect(url, REDIRECT_STATUS)
-         case LoginSignupResult(_, _, Some(authUser), _) =>
-           pu
+         case LoginSignupResult(_, _, Some(authUser), _) => {
+           // TODO blocking
+           import scala.concurrent.duration._
+           Await.result(processUser(request, auth.authUser.get), 10.second)
+         }
        }
      }
   }
@@ -385,7 +387,7 @@ package object authentication {
     var oldUser = getUser(request.session)
     val isLoggggedIn = isLoggedIn(request.session)
     val b = for {
-      oldIdentity <- if (isLoggggedIn) getUserService.getByAuthUserIdentity(oldUser.get) else Future(None)
+      oldIdentity <- if (isLoggggedIn) getUserService.getByAuthUserIdentity(oldUser.get) else Future.successful(None)
       loginIdentity <- getUserService.getByAuthUserIdentity(newUser)
     } yield {
       // TODO: could never fall into this if :(
@@ -402,7 +404,7 @@ package object authentication {
       val loginUser: Future[AuthUser] = (isLinked, isLoggggedIn) match {
         case (true, false) => {
           Logger.info("Performing login.")
-          Future(newUser)
+          Future.successful(newUser)
         }
         case (true, true) => {
           Logger.info("Performing merge.")
@@ -413,7 +415,7 @@ package object authentication {
             } else {
               Logger.info("Auto merge is not active.")
               storeMergeUser(newUser, request.session)
-              return Future(Results.Redirect(use[PlaySecPlugin].askMerge))
+              return Future.successful(Results.Redirect(use[PlaySecPlugin].askMerge))
             }
           } else {
             Logger.info("Doing nothing, auto merging is not enabled or " +
@@ -422,7 +424,7 @@ package object authentication {
             // to the same local user,
             // or Account merge is disabled, so just change the log
             // in to the new user
-            Future(newUser)
+            Future.successful(newUser)
           }
         }
         case (false, false) => {
@@ -437,7 +439,7 @@ package object authentication {
             Logger.info(
               s"Will not link additional account. Auto linking is disabled.")
             storeLinkUser(newUser, request.session)
-            return Future(Results.Redirect(use[PlaySecPlugin].askLink))
+            return Future.successful(Results.Redirect(use[PlaySecPlugin].askLink))
           }
         }
       }

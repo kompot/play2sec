@@ -16,7 +16,7 @@
 
 package com.github.kompot.play2sec.authentication.providers.oauth2.google
 
-import play.api.Application
+import play.api.{Logger, Application}
 
 import play.api.libs.ws.{Response, WS}
 import scala.concurrent.{ExecutionContext, Await, Future}
@@ -57,6 +57,15 @@ class GoogleAuthProvider(app: Application)
     for {
       r <- fr
     } yield {
+      Logger.warn("google response status us " + r.status + " and content is " + r)
+      // TODO: google sometimes returns error (in html)
+      // and r.json fails with
+      // JsonParseException: Unexpected character ('<' (code 60)): expected a valid value (number, String, array, object, 'true', 'false' or 'null')
+      // at [Source: [B@136c16e; line: 1, column: 2]]
+      // how to fix that?
+      if (r.status != 200) {
+        throw new AccessTokenException("Unable to create GoogleAuthInfo from response " + r)
+      }
       val err = r.json.\(OAuth2AuthProvider.Constants.ERROR).as[Option[String]].getOrElse(null)
       if (err != null) {
         throw new AccessTokenException(err)
