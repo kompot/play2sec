@@ -4,7 +4,7 @@ name := "play2sec"
 
 organization := "com.github.kompot"
 
-version := "0.0.1"
+version := "0.0.2-SNAPSHOT"
 
 publishMavenStyle := true
 
