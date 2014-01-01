@@ -8,6 +8,8 @@ version := "0.0.2-SNAPSHOT"
 
 publishMavenStyle := true
 
+scalaVersion := "2.10.3"
+
 publishTo := {
   val nexus = "https://oss.sonatype.org/"
   if (version.value.trim.endsWith("SNAPSHOT"))
@@ -43,11 +45,16 @@ pomExtra :=
 
 libraryDependencies ++= Seq(
   cache,
-  "org.mindrot" % "jbcrypt" % "0.3m"
+  "org.mindrot"              %  "jbcrypt"             % "0.3m",
+  "org.reactivemongo"        %% "reactivemongo"       % "0.10.0" % "test",
+  "org.reactivemongo"        %% "play2-reactivemongo" % "0.10.0" % "test",
+  "com.softwaremill.macwire" %% "core"                % "0.4.1"  % "test",
+  "com.typesafe"             %% "play-plugins-mailer" % "2.2.0"  % "test"
 )
 
 play.Project.playScalaSettings ++ Seq(
   resolvers += "Sonatype Snapshots" at "http://oss.sonatype.org/content/repositories/snapshots/",
   resolvers += "Common maven repository" at "http://repo1.maven.org/maven2/",
   resolvers += "Local maven repository" at "file://" + Path.userHome.absolutePath + "/.m2/repository/"
-) ++ org.scalastyle.sbt.ScalastylePlugin.Settings
+) ++ org.scalastyle.sbt.ScalastylePlugin.Settings ++ ScoverageSbtPlugin.instrumentSettings
+
