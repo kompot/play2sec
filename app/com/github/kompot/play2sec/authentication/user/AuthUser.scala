@@ -22,7 +22,7 @@ import org.apache.commons.lang3.LocaleUtils
 trait AuthUser extends AuthUserIdentity {
   def expires = AuthUser.NO_EXPIRATION
 
-  override def toString = s"$id@$provider"
+  override def toString = AuthUser.toString(this)
 }
 
 object AuthUser {
@@ -44,28 +44,31 @@ object AuthUser {
     }
   }
 
-  // TODO uncomment?
-//  // T extends AuthUserIdentity & NameIdentity
-//  def toString[T](identity: T): String = {
-//    val sb = new StringBuilder
-//    if (identity.getName() != null) {
-//      sb.append(identity.getName())
-//      sb.append(" ")
-//    }
-//    if(identity instanceof EmailIdentity) {
-//      final EmailIdentity i2 = (EmailIdentity) identity
-//      if (i2.getEmail() != null) {
-//        sb.append("(")
-//        sb.append(i2.getEmail())
-//        sb.append(") ")
-//      }
-//    }
-//    if (sb.length() == 0) {
-//      sb.append(identity.getId())
-//    }
-//    sb.append(" @ ")
-//    sb.append(identity.getProvider())
-//
-//    sb.toString
-//  }
+  def toString[T <: AuthUserIdentity](identity: T): String = {
+    val sb = new StringBuilder
+    identity match {
+      case i2: NameIdentity =>
+        if (i2.name != null) {
+          sb.append(i2.name)
+          sb.append(" ")
+        }
+      case _ =>
+    }
+    identity match {
+      case i2: EmailIdentity =>
+        if (i2.email != null) {
+          sb.append("(")
+          sb.append(i2.email)
+          sb.append(") ")
+        }
+      case _ =>
+    }
+    if (sb.length == 0) {
+      sb.append(identity.id)
+    }
+    sb.append(" @ ")
+    sb.append(identity.provider)
+
+    sb.toString()
+  }
 }
