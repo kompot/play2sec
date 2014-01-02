@@ -1,5 +1,7 @@
 import bootstrap.Global.Injector
 import com.github.kompot.play2sec.authentication
+import com.github.kompot.play2sec.authentication.providers.oauth1.twitter
+.TwitterAuthProvider
 import com.github.kompot.play2sec.authentication.providers.oauth2.facebook
 .FacebookAuthProvider
 import com.github.kompot.play2sec.authentication.providers.password
@@ -30,6 +32,10 @@ object Helper extends JsonWebConversions {
     case ("GET", "/auth/external/facebook") =>
       Action.async { implicit request =>
         authentication.handleAuthentication("facebook", request)
+      }
+    case ("GET", "/auth/external/twitter") =>
+      Action.async { implicit request =>
+        authentication.handleAuthentication("twitter", request)
       }
     case ("POST", "/auth/signup") =>
       Action.async { implicit request =>
@@ -95,6 +101,16 @@ object Helper extends JsonWebConversions {
     "play2sec.facebook.accessTokenUrl" -> "https://graph.facebook.com/oauth/access_token",
     "play2sec.facebook.userInfoUrl" -> "https://graph.facebook.com/me",
     "play2sec.facebook.scope" -> "email",
+    "test.twitter.login" -> "",
+    "test.twitter.password" -> "",
+    "test.twitter.id" -> "",
+    "play2sec.twitter.consumerKey" -> "",
+    "play2sec.twitter.consumerSecret" -> "",
+    "play2sec.twitter.requestTokenUrl" -> "https://api.twitter.com/oauth/request_token",
+    "play2sec.twitter.accessTokenUrl" -> "https://api.twitter.com/oauth/access_token",
+    "play2sec.twitter.authorizationUrl" -> "https://api.twitter.com/oauth/authorize",
+    "play2sec.twitter.userInfoUrl" -> "https://api.twitter.com/1.1/account/verify_credentials.json",
+    "play2sec.twitter.redirectUri.secure" -> "false",
     "play2sec.accountAutoLink" -> "true",
     "play2sec.accountMergeEnabled" -> "true",
     "play2sec.accountAutoMerge" -> "true",
@@ -116,6 +132,7 @@ object Helper extends JsonWebConversions {
     "play.modules.reactivemongo.ReactiveMongoPlugin",
     "com.typesafe.plugin.CommonsMailerPlugin",
     "com.github.kompot.play2sec.authentication.providers.MyUsernamePasswordAuthProvider",
+    "com.github.kompot.play2sec.authentication.providers.oauth1.twitter.TwitterAuthProvider",
     "com.github.kompot.play2sec.authentication.providers.oauth2.facebook.FacebookAuthProvider",
     "com.github.kompot.play2sec.authentication.DefaultPlaySecPlugin"
   ))
@@ -125,16 +142,27 @@ class FacebookBrowserTest extends PlaySpecification {
   "Accounts email and facebook should be merged" in new WithBrowser(
     webDriver = FIREFOX, app = Helper.appWithRoutes) {
 
-    val login          = current.configuration.getString("test.facebook.login")
-    val password       = current.configuration.getString("test.facebook.password")
-    val facebookUserId = current.configuration.getString("test.facebook.id")
+    val facebookLogin    = current.configuration.getString("test.facebook.login")
+    val facebookPassword = current.configuration.getString("test.facebook.password")
+    val facebookUserId   = current.configuration.getString("test.facebook.id")
 
-    assert(login.isDefined && !login.get.isEmpty,
+    val twitterLogin    = current.configuration.getString("test.twitter.login")
+    val twitterPassword = current.configuration.getString("test.twitter.password")
+    val twitterUserId   = current.configuration.getString("test.twitter.id")
+
+    assert(facebookLogin.isDefined && !facebookLogin.get.isEmpty,
       "Key test.facebook.login is not defined in configuration.")
-    assert(password.isDefined && !password.get.isEmpty,
+    assert(facebookPassword.isDefined && !facebookPassword.get.isEmpty,
       "Key test.facebook.password is not defined in configuration.")
     assert(facebookUserId.isDefined && !facebookUserId.get.isEmpty,
       "Key test.facebook.id is not defined in configuration.")
+
+    assert(twitterLogin.isDefined && !twitterLogin.get.isEmpty,
+      "Key test.twitter.login is not defined in configuration.")
+    assert(twitterPassword.isDefined && !twitterPassword.get.isEmpty,
+      "Key test.twitter.password is not defined in configuration.")
+    assert(twitterUserId.isDefined && !twitterUserId.get.isEmpty,
+      "Key test.twitter.id is not defined in configuration.")
 
 //    // first signup as a normal email/password user
     browser.goTo("/auth")
@@ -157,15 +185,14 @@ class FacebookBrowserTest extends PlaySpecification {
       browser.url.contains("www.facebook.com/login")
     }
     if (browser.url.contains("www.facebook.com/login")) {
-      browser.fill("input#email").`with`(login.get)
-      browser.fill("input#pass").`with`(password.get)
+      browser.fill("input#email").`with`(facebookLogin.get)
+      browser.fill("input#pass").`with`(facebookPassword.get)
       browser.click("input#persist_box")
       browser.click("input[type = 'submit'][name = 'login']")
     }
 
     browser.waitUntil(10, TimeUnit.SECONDS) {
       // wait until back to localhost
-      println("___" + browser.url)
       browser.url.startsWith("/")
     }
     val user = MongoWait(new UserService().getByAuthUserIdentity(new AuthUserIdentity {
@@ -181,6 +208,26 @@ class FacebookBrowserTest extends PlaySpecification {
     // 1. facebook
     // it's not and it's definitely a bug
     user.get.confirmed mustEqual true
+
+    browser.goTo("/auth/external/twitter")
+    browser.waitUntil(10, TimeUnit.SECONDS) {
+      browser.url.contains("api.twitter.com/oauth/authorize")
+    }
+
+    browser.fill("input#username_or_email").`with`(twitterLogin.get)
+    browser.fill("input#password").`with`(twitterPassword.get)
+    browser.click("input[type = 'submit'][id = 'allow']")
+
+    browser.waitUntil(10, TimeUnit.SECONDS) {
+      // wait until back to localhost
+      browser.url.startsWith("/")
+    }
+
+    val user1 = MongoWait(new UserService().getByAuthUserIdentity(new AuthUserIdentity {
+      def provider = TwitterAuthProvider.PROVIDER_KEY
+      def id = twitterUserId.get
+    }))
+    user1.get.remoteUsers.size mustEqual 3
 
   }
 }

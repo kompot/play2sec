@@ -38,6 +38,7 @@ package object providers {
 
   def get(provider: String): Option[AuthProvider] = providers.get(provider)
 
+  // TODO not used; remove?
   def getProviders: Iterable[AuthProvider] = providers.values
 
   def hasProvider(provider: String): Boolean = providers.contains(provider)
