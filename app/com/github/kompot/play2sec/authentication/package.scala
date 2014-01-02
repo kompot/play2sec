@@ -186,6 +186,7 @@ package object authentication {
 
   // TODO: what is this for?
   def getProvider(providerKey: String): Option[AuthProvider] =
+    // TODO direct get
     com.github.kompot.play2sec.authentication.providers.get(providerKey)
 //match {
 //    case a.providers.AuthProvider => _
@@ -352,6 +353,7 @@ package object authentication {
   def handleAuthentication[A](provider: String, request: Request[A],
       payload: Option[Case.Value] = None): Future[SimpleResult] = {
      for {
+       // TODO direct get
        auth <- getProvider(provider).get.authenticate(request, payload)
      } yield {
        auth match {
