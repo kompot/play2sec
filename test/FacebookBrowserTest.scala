@@ -4,11 +4,12 @@ import com.github.kompot.play2sec.authentication.providers.oauth1.twitter
 .TwitterAuthProvider
 import com.github.kompot.play2sec.authentication.providers.oauth2.facebook
 .FacebookAuthProvider
+import com.github.kompot.play2sec.authentication.providers.oauth2.google
+.GoogleAuthProvider
 import com.github.kompot.play2sec.authentication.providers.password
 .UsernamePasswordAuthProvider
 import com.github.kompot.play2sec.authentication.user.{AuthUser,
 AuthUserIdentity}
-import com.google.common.base.Optional
 import controllers.{JsonWebConversions, Authorization, JsResponseError}
 import java.util.concurrent.TimeUnit
 import mock.MailServer
@@ -36,6 +37,10 @@ object Helper extends JsonWebConversions {
     case ("GET", "/auth/external/twitter") =>
       Action.async { implicit request =>
         authentication.handleAuthentication("twitter", request)
+      }
+    case ("GET", "/auth/external/google") =>
+      Action.async { implicit request =>
+        authentication.handleAuthentication("google", request)
       }
     case ("POST", "/auth/signup") =>
       Action.async { implicit request =>
@@ -111,6 +116,15 @@ object Helper extends JsonWebConversions {
     "play2sec.twitter.authorizationUrl" -> "https://api.twitter.com/oauth/authorize",
     "play2sec.twitter.userInfoUrl" -> "https://api.twitter.com/1.1/account/verify_credentials.json",
     "play2sec.twitter.redirectUri.secure" -> "false",
+    "test.google.login" -> "",
+    "test.google.password" -> "",
+    "test.google.id" -> "",
+    "play2sec.google.clientId" -> "",
+    "play2sec.google.clientSecret" -> "",
+    "play2sec.google.authorizationUrl" -> "https://accounts.google.com/o/oauth2/auth",
+    "play2sec.google.accessTokenUrl" -> "https://accounts.google.com/o/oauth2/token",
+    "play2sec.google.userInfoUrl" -> "https://www.googleapis.com/oauth2/v1/userinfo",
+    "play2sec.google.scope" -> "https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email",
     "play2sec.accountAutoLink" -> "true",
     "play2sec.accountMergeEnabled" -> "true",
     "play2sec.accountAutoMerge" -> "true",
@@ -134,6 +148,7 @@ object Helper extends JsonWebConversions {
     "com.github.kompot.play2sec.authentication.providers.MyUsernamePasswordAuthProvider",
     "com.github.kompot.play2sec.authentication.providers.oauth1.twitter.TwitterAuthProvider",
     "com.github.kompot.play2sec.authentication.providers.oauth2.facebook.FacebookAuthProvider",
+    "com.github.kompot.play2sec.authentication.providers.oauth2.google.GoogleAuthProvider",
     "com.github.kompot.play2sec.authentication.DefaultPlaySecPlugin"
   ))
 }
@@ -150,6 +165,10 @@ class FacebookBrowserTest extends PlaySpecification {
     val twitterPassword = current.configuration.getString("test.twitter.password")
     val twitterUserId   = current.configuration.getString("test.twitter.id")
 
+    val googleLogin    = current.configuration.getString("test.google.login")
+    val googlePassword = current.configuration.getString("test.google.password")
+    val googleUserId   = current.configuration.getString("test.google.id")
+
     assert(facebookLogin.isDefined && !facebookLogin.get.isEmpty,
       "Key test.facebook.login is not defined in configuration.")
     assert(facebookPassword.isDefined && !facebookPassword.get.isEmpty,
@@ -164,7 +183,14 @@ class FacebookBrowserTest extends PlaySpecification {
     assert(twitterUserId.isDefined && !twitterUserId.get.isEmpty,
       "Key test.twitter.id is not defined in configuration.")
 
-//    // first signup as a normal email/password user
+    assert(googleLogin.isDefined && !googleLogin.get.isEmpty,
+      "Key test.google.login is not defined in configuration.")
+    assert(googlePassword.isDefined && !googlePassword.get.isEmpty,
+      "Key test.google.password is not defined in configuration.")
+    assert(googleUserId.isDefined && !googleUserId.get.isEmpty,
+      "Key test.google.id is not defined in configuration.")
+
+    // first signup as a normal email/password user
     browser.goTo("/auth")
     browser.fill("input#email").`with`("kompotik@gmail.com")
     browser.$("#password").text("123")
@@ -229,5 +255,33 @@ class FacebookBrowserTest extends PlaySpecification {
     }))
     user1.get.remoteUsers.size mustEqual 3
 
+    browser.goTo("/auth/external/google")
+    browser.waitUntil(10, TimeUnit.SECONDS) {
+      browser.url.contains("google.com/ServiceLogin")
+    }
+
+    browser.fill("input#Email").`with`(googleLogin.get)
+    browser.fill("input#Passwd").`with`(googlePassword.get)
+    browser.click("input[type = 'submit'][id = 'signIn']")
+
+    browser.waitUntil(10, TimeUnit.SECONDS) {
+      browser.url.contains("accounts.google.com/o/oauth2/auth")
+    }
+
+    browser.waitUntil(10, TimeUnit.SECONDS) {
+      browser.findFirst("button[id = 'submit_approve_access']").isEnabled
+    }
+
+    browser.click("button[id = 'submit_approve_access']")
+
+    browser.waitUntil(10, TimeUnit.SECONDS) {
+      browser.url.startsWith("/")
+    }
+
+    val user2 = MongoWait(new UserService().getByAuthUserIdentity(new AuthUserIdentity {
+      def provider = GoogleAuthProvider.PROVIDER_KEY
+      def id = googleUserId.get
+    }))
+    user2.get.remoteUsers.size mustEqual 4
   }
 }
