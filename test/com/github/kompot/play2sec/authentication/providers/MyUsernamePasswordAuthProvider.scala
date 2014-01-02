@@ -128,7 +128,7 @@ class MyUsernamePasswordAuthProvider(app: play.Application)
 
   private def getVerificationLink[A](token: Token, user: MyUsernamePasswordAuthUser,
       request: Request[A]): String = {
-    Call("GET", "/auth/verify-email?toke=" + token.securityKey).absoluteURL()(request)
+    Call("GET", "/auth/verify-email?token=" + token.securityKey).absoluteURL()(request)
 //    routes.Authorization.verifyEmailAndLogin(token.securityKey).absoluteURL()(request)
   }
 

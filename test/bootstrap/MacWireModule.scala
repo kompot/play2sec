@@ -10,5 +10,5 @@ import model.{MailService, TokenService, UserService}
 trait MacWireModule {
   lazy val tokenService = wire[TokenService]
   lazy val userService = wire[UserService]
-  lazy val mailService = wire[MailService]
+  lazy val mailService = wire[mock.MailService]
 }

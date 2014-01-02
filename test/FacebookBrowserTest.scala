@@ -1,25 +1,80 @@
+import bootstrap.Global.Injector
 import com.github.kompot.play2sec.authentication
 import com.github.kompot.play2sec.authentication.providers.oauth2.facebook
 .FacebookAuthProvider
-import com.github.kompot.play2sec.authentication.user.AuthUserIdentity
+import com.github.kompot.play2sec.authentication.providers.password
+.UsernamePasswordAuthProvider
+import com.github.kompot.play2sec.authentication.user.{AuthUser,
+AuthUserIdentity}
+import com.google.common.base.Optional
+import controllers.{JsonWebConversions, Authorization, JsResponseError}
 import java.util.concurrent.TimeUnit
+import mock.MailServer
 import model.{MongoWait, UserService}
+import org.joda.time.Seconds
 import play.api.http.Status
 import play.api.http.Status._
 import play.api.libs.json.JsValue
 import play.api.Logger
 import play.api.mvc.{Results, Action}
+import play.api.templates.Html
 import play.api.test.FakeApplication
 import play.api.test.{FakeApplication, WithBrowser, PlaySpecification}
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{Future, ExecutionContext}
 import ExecutionContext.Implicits.global
 import play.api.Play.current
+import util.StringUtils
 
-object Helper {
+object Helper extends JsonWebConversions {
   val appWithRoutes = FakeApplication(withRoutes = {
     case ("GET", "/auth/external/facebook") =>
       Action.async { implicit request =>
         authentication.handleAuthentication("facebook", request)
+      }
+    case ("POST", "/auth/signup") =>
+      Action.async { implicit request =>
+        Authorization.userSignUpForm.bindFromRequest.fold(
+          { errors => Future.successful(Results.BadRequest[JsValue](
+            JsResponseError("Unable to perform signup.", Some(errors)))) },
+          { case _ => UsernamePasswordAuthProvider.handleSignup(request) }
+        )
+      }
+    case ("GET", "/auth") =>
+      Action { implicit request =>
+        Results.Ok(
+          Html("""
+            <form action="/auth/signup" method="post">
+              <input type="text"     name="email"    id="email" />
+              <input type="password" name="password" id="password" />
+              <input type="submit" />
+            </form>
+          """))
+      }
+    case ("GET", "/auth/verify-email") =>
+      Action.async { implicit request =>
+        for {
+          maybeToken <- Injector.tokenService.getValidTokenBySecurityKey(request.getQueryString("token").get)
+          email = maybeToken.get.data.\("email").as[String]
+          res <- Injector.userService.verifyEmail(maybeToken.get.userId, email)
+          maybeUser <- Injector.userService.get(maybeToken.get.userId)
+        } yield {
+          if (maybeUser.isDefined) {
+            if (maybeUser.get.remoteUsers.exists{ r =>
+              r.provider == UsernamePasswordAuthProvider.PROVIDER_KEY &&
+                  r.id == email && r.isConfirmed
+            }) {
+              val identity = new AuthUser {
+                def id = email
+                def provider = UsernamePasswordAuthProvider.PROVIDER_KEY
+              }
+              MongoWait(authentication.loginAndRedirect(request, Future.successful(identity)))
+            } else {
+              Results.InternalServerError("Email was not verified.")
+            }
+          } else {
+            Results.InternalServerError("Email was not verified.")
+          }
+        }
       }
     case ("GET", "/") => Action(Results.Ok("It's home baby"))
   }, additionalConfiguration = Map(
@@ -39,9 +94,28 @@ object Helper {
     "play2sec.facebook.authorizationUrl" -> "https://graph.facebook.com/oauth/authorize",
     "play2sec.facebook.accessTokenUrl" -> "https://graph.facebook.com/oauth/access_token",
     "play2sec.facebook.userInfoUrl" -> "https://graph.facebook.com/me",
-    "play2sec.facebook.scope" -> "email"
+    "play2sec.facebook.scope" -> "email",
+    "play2sec.accountAutoLink" -> "true",
+    "play2sec.accountMergeEnabled" -> "true",
+    "play2sec.accountAutoMerge" -> "true",
+    "play2sec-mail.from.email" -> "play2sec@kompot.name",
+    "play2sec-mail.from.name" -> "play2sec",
+    "play2sec-mail.from.delay" -> "1",
+    "play2sec.email.mail.verificationLink.secure" -> "false",
+    "play2sec.email.mail.passwordResetLink.secure" -> "false",
+    "play2sec.email.mail.from.email" -> "play2sec@kompot.name",
+    "play2sec.email.mail.from.name" -> "play2sec@kompot.name",
+    "play2sec.email.mail.delay" -> "1",
+    "play2sec.email.loginAfterPasswordReset" -> "true",
+    "smtp.host" -> "smtp.gmail.com",
+    "smtp.port" -> "587",
+    "smtp.tls" -> "true",
+    "smtp.user" -> "kompotik@gmail.com",
+    "smtp.password" -> "123456qwerty"
   ), additionalPlugins = Seq(
     "play.modules.reactivemongo.ReactiveMongoPlugin",
+    "com.typesafe.plugin.CommonsMailerPlugin",
+    "com.github.kompot.play2sec.authentication.providers.MyUsernamePasswordAuthProvider",
     "com.github.kompot.play2sec.authentication.providers.oauth2.facebook.FacebookAuthProvider",
     "com.github.kompot.play2sec.authentication.DefaultPlaySecPlugin"
   ))
@@ -63,13 +137,19 @@ class FacebookBrowserTest extends PlaySpecification {
       "Key test.facebook.id is not defined in configuration.")
 
 //    // first signup as a normal email/password user
-//    browser.goTo(routes.Authorization.logIn().url)
-//    browser.fill("input#email").`with`("kompotik@gmail.com")
-//    browser.$("#password").text("123")
-//    browser.click("input#noaccount")
-//    browser.click("input[type = 'button'][id = 'submit']")
-//
-//    browser.await().atMost(1000)
+    browser.goTo("/auth")
+    browser.fill("input#email").`with`("kompotik@gmail.com")
+    browser.$("#password").text("123")
+    browser.click("input#noaccount")
+    browser.click("input[type = 'submit']")
+
+    browser.await().atMost(1000)
+
+    val link = StringUtils.getFirstLinkByContent(
+      MailServer.boxes("kompotik@gmail.com").findByContent("verify-email")(0).body, "verify-email").get
+    val emailVerificationLink = StringUtils.getRequestPathFromString(link)
+
+    browser.goTo(emailVerificationLink)
 
     // then signup via facebook
     browser.goTo("/auth/external/facebook")
@@ -93,17 +173,14 @@ class FacebookBrowserTest extends PlaySpecification {
       def id = facebookUserId.get
     }))
     user.get mustNotEqual None
-    user.get.remoteUsers.size mustEqual 1
-    // TODO should definitely be true
-//    user.get.confirmed mustEqual true
+    user.get.remoteUsers.size mustEqual 2
+    // TODO when doing signup in this order
+    // 1. email 2. facebook
+    // then facebook user is confirmed and it's ok
+    // but when
+    // 1. facebook
+    // it's not and it's definitely a bug
+    user.get.confirmed mustEqual true
 
-    //    new UserService().getByAuthUserIdentity(new AuthUserIdentity {
-//      def getId = "123"
-//      def getProvider = FacebookAuthProvider.PROVIDER_KEY
-//    }).map{ u =>
-//    // verify that our user has two remote accounts
-//      u mustNotEqual None
-//      u.get.remoteUsers.size must beEqualTo(2)
-//    }
   }
 }

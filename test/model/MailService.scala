@@ -12,9 +12,9 @@ import play.api.{Logger, Configuration}
 import akka.actor.Cancellable
 import play.libs.Akka
 import play.api.Play.current
-import com.typesafe.plugin
 
 class MailService extends authentication.MailService {
+  // TODO direct get
   val getConfiguration = play.api.Play.current.configuration.
                          getConfig(MailService.CONFIG_BASE).get
   val delay = Duration(getConfiguration.getLong(MailService.SettingKeys.DELAY).
@@ -30,10 +30,11 @@ class MailService extends authentication.MailService {
 
   private class MailJob(mail: Mail) extends Runnable {
     def run() {
-      Logger.info("Sending mail to " + mail.recipients);
+      Logger.info("Sending mail to " + mail.recipients.mkString(", "))
       // TODO initializing this plugin as a class member results in StackOverflow
       // might be due to MacWire injection
 
+      // TODO direct get
       val plugin = play.api.Play.application.plugin(classOf[MailerPlugin]).get
       val api = plugin.email
       api.setSubject(mail.subject)
