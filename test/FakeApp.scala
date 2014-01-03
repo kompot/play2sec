@@ -118,9 +118,11 @@ object FakeApp extends JsonWebConversions {
     "smtp.port" -> "587",
     "smtp.tls" -> "true",
     "smtp.user" -> "kompotik@gmail.com",
-    "smtp.password" -> "123456qwerty"
+    "smtp.password" -> "123456qwerty",
+    "ehcacheplugin" -> "disabled"
   )
   val additionalPlugins = Seq(
+    "mock.FixedEhCachePlugin",
     "play.modules.reactivemongo.ReactiveMongoPlugin",
     "com.typesafe.plugin.CommonsMailerPlugin",
     "com.github.kompot.play2sec.authentication.providers.MyUsernamePasswordAuthProvider",

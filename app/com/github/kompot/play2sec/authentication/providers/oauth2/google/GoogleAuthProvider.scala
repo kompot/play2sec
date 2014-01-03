@@ -57,7 +57,7 @@ class GoogleAuthProvider(app: Application)
     for {
       r <- fr
     } yield {
-      Logger.warn("google response status us " + r.status + " and content is " + r)
+      Logger.info("google response status is " + r.status + " and content is " + r.body)
       // TODO: google sometimes returns error (in html)
       // and r.json fails with
       // JsonParseException: Unexpected character ('<' (code 60)): expected a valid value (number, String, array, object, 'true', 'false' or 'null')

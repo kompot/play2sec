@@ -8,15 +8,33 @@ import com.github.kompot.play2sec.authentication.user.AuthUserIdentity
 import java.util.concurrent.TimeUnit
 import mock.MailServer
 import model.{MongoWait, UserService}
+import play.api.Play
 import play.api.test.{WithBrowser, PlaySpecification}
+import play.modules.reactivemongo.ReactiveMongoPlugin
+import reactivemongo.api.collections.default.BSONCollection
+import reactivemongo.bson.BSONDocument
 import scala.concurrent.ExecutionContext
 import ExecutionContext.Implicits.global
 import play.api.Play.current
 import util.StringUtils
 
 class FacebookBrowserTest extends PlaySpecification {
-  "Accounts email and facebook should be merged" in new WithBrowser(
-    webDriver = FIREFOX, app = new FakeApp) {
+  val fapp = new FakeApp
+
+  sequential
+
+  step {
+    if (!Play.maybeApplication.isDefined) {
+      Play.start(fapp)
+    }
+    MongoWait(ReactiveMongoPlugin.db.collection[BSONCollection]("user").remove(BSONDocument()))
+    MongoWait(ReactiveMongoPlugin.db.collection[BSONCollection]("token").remove(BSONDocument()))
+    if (Play.maybeApplication.isDefined) {
+      Play.stop()
+    }
+  }
+
+  "Accounts email and facebook should be merged" in new WithBrowser(webDriver = FIREFOX, app = fapp) {
 
     val facebookLogin    = current.configuration.getString("test.facebook.login")
     val facebookPassword = current.configuration.getString("test.facebook.password")
@@ -144,5 +162,16 @@ class FacebookBrowserTest extends PlaySpecification {
       def id = googleUserId.get
     }))
     user2.get.remoteUsers.size mustEqual 4
+  }
+
+  step {
+    if (!Play.maybeApplication.isDefined) {
+      Play.start(fapp)
+    }
+    MongoWait(ReactiveMongoPlugin.db.collection[BSONCollection]("user").remove(BSONDocument()))
+    MongoWait(ReactiveMongoPlugin.db.collection[BSONCollection]("token").remove(BSONDocument()))
+    if (Play.maybeApplication.isDefined) {
+      Play.stop()
+    }
   }
 }
