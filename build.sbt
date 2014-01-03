@@ -45,11 +45,12 @@ pomExtra :=
 
 libraryDependencies ++= Seq(
   cache,
-  "org.mindrot"              %  "jbcrypt"             % "0.3m",
-  "org.reactivemongo"        %% "reactivemongo"       % "0.10.0" % "test",
-  "org.reactivemongo"        %% "play2-reactivemongo" % "0.10.0" % "test",
-  "com.softwaremill.macwire" %% "core"                % "0.4.1"  % "test",
-  "com.typesafe"             %% "play-plugins-mailer" % "2.2.0"  % "test"
+  "org.mindrot"              %  "jbcrypt"                   % "0.3m",
+  "de.flapdoodle.embed"      %  "de.flapdoodle.embed.mongo" % "1.41"   % "test",
+  "org.reactivemongo"        %% "reactivemongo"             % "0.10.0" % "test",
+  "org.reactivemongo"        %% "play2-reactivemongo"       % "0.10.0" % "test",
+  "com.softwaremill.macwire" %% "core"                      % "0.4.1"  % "test",
+  "com.typesafe"             %% "play-plugins-mailer"       % "2.2.0"  % "test"
 )
 
 play.Project.playScalaSettings ++ Seq(

@@ -72,6 +72,7 @@ object FakeApp extends JsonWebConversions {
   }
   val additionalConfiguration = Map(
     "mongodb.db" -> "play2sec-test",
+    "mongodb.servers" -> List("localhost:12345"),
     "application.secret" -> "123",
     "application.global" -> "bootstrap.Global",
     "test.facebook.login" -> "social@arendit.com",

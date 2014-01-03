@@ -5,6 +5,10 @@ import com.github.kompot.play2sec.authentication.providers.oauth2.facebook
 import com.github.kompot.play2sec.authentication.providers.oauth2.google
 .GoogleAuthProvider
 import com.github.kompot.play2sec.authentication.user.AuthUserIdentity
+import de.flapdoodle.embed.mongo.config.{Net, MongodConfigBuilder}
+import de.flapdoodle.embed.mongo.distribution.Version
+import de.flapdoodle.embed.mongo.MongodStarter
+import de.flapdoodle.embed.process.runtime.Network
 import java.util.concurrent.TimeUnit
 import mock.MailServer
 import model.{MongoWait, UserService}
@@ -22,6 +26,13 @@ class FacebookBrowserTest extends PlaySpecification {
   val fapp = new FakeApp
 
   sequential
+
+  val runtime = MongodStarter.getDefaultInstance
+  val mongodExe = runtime.prepare(new MongodConfigBuilder()
+                                  .version(Version.V2_4_8)
+                                  .net(new Net(12345, Network.localhostIsIPv6))
+                                  .build())
+  val mongod = mongodExe.start()
 
   step {
     if (!Play.maybeApplication.isDefined) {
@@ -173,5 +184,6 @@ class FacebookBrowserTest extends PlaySpecification {
     if (Play.maybeApplication.isDefined) {
       Play.stop()
     }
+    mongodExe.stop()
   }
 }
