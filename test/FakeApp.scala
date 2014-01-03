@@ -19,17 +19,9 @@ class FakeApp extends FakeApplication(
 
 object FakeApp extends JsonWebConversions {
   val routes: PartialFunction[(String, String), Handler] = {
-    case ("GET", "/auth/external/facebook") =>
+    case ("GET", path: String) if path.startsWith("/auth/external/") =>
       Action.async { implicit request =>
-        authentication.handleAuthentication("facebook", request)
-      }
-    case ("GET", "/auth/external/twitter") =>
-      Action.async { implicit request =>
-        authentication.handleAuthentication("twitter", request)
-      }
-    case ("GET", "/auth/external/google") =>
-      Action.async { implicit request =>
-        authentication.handleAuthentication("google", request)
+        authentication.handleAuthentication(path.substring("/auth/external/".length), request)
       }
     case ("POST", "/auth/signup") =>
       Action.async { implicit request =>
@@ -82,35 +74,30 @@ object FakeApp extends JsonWebConversions {
     "mongodb.db" -> "play2sec-test",
     "application.secret" -> "123",
     "application.global" -> "bootstrap.Global",
-    // this is your test account facebook real login
-    "test.facebook.login" -> "",
-    // password
-    "test.facebook.password" -> "",
-    // id of your facebook user account
-    "test.facebook.id" -> "",
-    // clientId of your test application
-    "play2sec.facebook.clientId" -> "",
-    // clientSecret of it
-    "play2sec.facebook.clientSecret" -> "",
+    "test.facebook.login" -> "social@arendit.com",
+    "test.facebook.password" -> "%%57@2k-/$R#I&1",
+    "test.facebook.id" -> "100004663565245",
+    "play2sec.facebook.clientId" -> "703521766355013",
+    "play2sec.facebook.clientSecret" -> "a4f131e1045c2b8251339ae031d8ebc4",
     "play2sec.facebook.authorizationUrl" -> "https://graph.facebook.com/oauth/authorize",
     "play2sec.facebook.accessTokenUrl" -> "https://graph.facebook.com/oauth/access_token",
     "play2sec.facebook.userInfoUrl" -> "https://graph.facebook.com/me",
     "play2sec.facebook.scope" -> "email",
-    "test.twitter.login" -> "",
-    "test.twitter.password" -> "",
-    "test.twitter.id" -> "",
-    "play2sec.twitter.consumerKey" -> "",
-    "play2sec.twitter.consumerSecret" -> "",
+    "test.twitter.login" -> "kompotium",
+    "test.twitter.password" -> "BWKTEtfz8ofmdUb9jUyy",
+    "test.twitter.id" -> "103319582",
+    "play2sec.twitter.consumerKey" -> "SYIg3GAlYt9Ia1e2eqJBXQ",
+    "play2sec.twitter.consumerSecret" -> "EZ8m3zC6NkUDlhFxLKC7ivQdRKHow6aR12n0maLlNoQ",
     "play2sec.twitter.requestTokenUrl" -> "https://api.twitter.com/oauth/request_token",
     "play2sec.twitter.accessTokenUrl" -> "https://api.twitter.com/oauth/access_token",
     "play2sec.twitter.authorizationUrl" -> "https://api.twitter.com/oauth/authorize",
     "play2sec.twitter.userInfoUrl" -> "https://api.twitter.com/1.1/account/verify_credentials.json",
     "play2sec.twitter.redirectUri.secure" -> "false",
-    "test.google.login" -> "",
-    "test.google.password" -> "",
-    "test.google.id" -> "",
-    "play2sec.google.clientId" -> "",
-    "play2sec.google.clientSecret" -> "",
+    "test.google.login" -> "kompot.less",
+    "test.google.password" -> "pervyvtoroy12",
+    "test.google.id" -> "107170182165815892871",
+    "play2sec.google.clientId" -> "399016805918-l73plnmm4l35s6qtp1j833qkhb6r1mcl.apps.googleusercontent.com",
+    "play2sec.google.clientSecret" -> "OXTEB4m_8RbNbSpQ8RzmdFJK",
     "play2sec.google.authorizationUrl" -> "https://accounts.google.com/o/oauth2/auth",
     "play2sec.google.accessTokenUrl" -> "https://accounts.google.com/o/oauth2/token",
     "play2sec.google.userInfoUrl" -> "https://www.googleapis.com/oauth2/v1/userinfo",
