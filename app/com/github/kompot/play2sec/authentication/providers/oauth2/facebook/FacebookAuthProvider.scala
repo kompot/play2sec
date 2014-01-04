@@ -39,7 +39,7 @@ class FacebookAuthProvider(app: play.api.Application) extends OAuth2AuthProvider
     val futureUser = for {
       fai <- info
       r <- WS
-          .url(getConfiguration.getString(FacebookAuthProvider.USER_INFO_URL_SETTING_KEY).get)
+          .url(providerConfig.getString(FacebookAuthProvider.USER_INFO_URL_SETTING_KEY).get)
           .withQueryString((OAuth2AuthProvider.Constants.ACCESS_TOKEN, fai.accessToken)).get()
     } yield {
       if (r.json.\(OAuth2AuthProvider.Constants.ERROR).isInstanceOf[JsUndefined]) {

@@ -37,7 +37,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 abstract class OAuth2AuthProvider[U <: BasicOAuth2AuthUser, I <: OAuth2AuthInfo](app: play.api.Application)
     extends ExternalAuthProvider(app) {
 
-  override protected def neededSettingKeys = super.neededSettingKeys ++ List(
+  override protected def requiredSettings = super.requiredSettings ++ List(
     OAuth2AuthProvider.SettingKeys.ACCESS_TOKEN_URL,
     OAuth2AuthProvider.SettingKeys.AUTHORIZATION_URL,
     OAuth2AuthProvider.SettingKeys.CLIENT_ID,
@@ -57,7 +57,7 @@ abstract class OAuth2AuthProvider[U <: BasicOAuth2AuthUser, I <: OAuth2AuthInfo]
   }
 
   def getAccessToken[A](code: String, request: Request[A]): Future[I] = {
-    val c = getConfiguration
+    val c = providerConfig
     val params = getAccessTokenParams(c, code, request)
     val url: String = c.getString(OAuth2AuthProvider.SettingKeys.ACCESS_TOKEN_URL).get
     val headers = ("Content-Type", "application/x-www-form-urlencoded")
@@ -69,7 +69,7 @@ abstract class OAuth2AuthProvider[U <: BasicOAuth2AuthUser, I <: OAuth2AuthInfo]
   protected def getAuthUrl[A](request: Request[A], state: String): String = {
     import OAuth2AuthProvider._
 
-    val c: Configuration = getConfiguration
+    val c: Configuration = providerConfig
 
     val params: List[NameValuePair] = getParams(request, c) ++ List(
       new BasicNameValuePair(Constants.SCOPE, c.getString(SettingKeys.SCOPE).get),

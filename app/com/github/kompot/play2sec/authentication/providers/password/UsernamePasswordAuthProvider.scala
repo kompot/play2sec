@@ -28,8 +28,7 @@ import com.github.kompot.play2sec.authentication.{PlaySecPlugin, MailService}
 import com.github.kompot.play2sec.authentication.providers.AuthProvider
 import com.github.kompot.play2sec.{authentication => atn}
 import com.github.kompot.play2sec.authentication.user.NameIdentity
-import com.github.kompot.play2sec.authentication.exceptions.AuthException
-import scala.concurrent.{Promise, Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 import ExecutionContext.Implicits.global
 
 abstract class UsernamePasswordAuthProvider[V, UL <: UsernamePasswordAuthUser,
@@ -38,7 +37,7 @@ abstract class UsernamePasswordAuthProvider[V, UL <: UsernamePasswordAuthUser,
     (implicit app: play.api.Application) extends AuthProvider(app) {
   protected val mailService: MailService
 
-  override protected def neededSettingKeys = List(
+  override protected def requiredSettings = List(
     s"$SETTING_KEY_MAIL.$SETTING_KEY_MAIL_DELAY",
     s"$SETTING_KEY_MAIL.$SETTING_KEY_MAIL_FROM.$SETTING_KEY_MAIL_FROM_EMAIL"
   )
@@ -54,9 +53,8 @@ abstract class UsernamePasswordAuthProvider[V, UL <: UsernamePasswordAuthUser,
       case Some(Case.SIGNUP)           => processSignup(request)
       case Some(Case.LOGIN)            => processLogin(request)
       case Some(Case.RECOVER_PASSWORD) => processRecover(request)
-      case _ => {
+      case _ =>
         Future.successful(new LoginSignupResult(com.typesafe.plugin.use[PlaySecPlugin].login.url))
-      }
     }
 
 
@@ -86,26 +84,24 @@ abstract class UsernamePasswordAuthProvider[V, UL <: UsernamePasswordAuthUser,
       r match {
         // The email of the user is not verified, yet -
         // we won't allow him to log in
-        case USER_UNVERIFIED => {
+        case USER_UNVERIFIED =>
           if (request.body.isInstanceOf[AnyContentAsJson]) {
             new LoginSignupResult(userLoginUnverifiedJson(authUser))
           } else {
             new LoginSignupResult(userUnverified(authUser).url)
           }
-        }
         // The user exists and the given password was correct
         case USER_LOGGED_IN => new LoginSignupResult(authUser)
         // don't expose this - it might harm users privacy if anyone
         // knows they signed up for our service
         // forward to login page
-        case WRONG_PASSWORD | NOT_FOUND => {
+        case WRONG_PASSWORD | NOT_FOUND =>
           // TODO: more elegant way to check this?
           if (request.body.isInstanceOf[AnyContentAsJson]) {
             new LoginSignupResult(onLoginUserNotFoundJson(request))
           } else {
             new LoginSignupResult(onLoginUserNotFound(request))
           }
-        }
         // TODO replace with error fallback URL
         case _ => new LoginSignupResult("/")
       }
@@ -128,7 +124,7 @@ abstract class UsernamePasswordAuthProvider[V, UL <: UsernamePasswordAuthUser,
           } else {
             new LoginSignupResult(userExists(authUser).url)
           }
-        case USER_EXISTS_UNVERIFIED | USER_CREATED_UNVERIFIED => {
+        case USER_EXISTS_UNVERIFIED | USER_CREATED_UNVERIFIED =>
           // User got created as unverified
           // Send validation email
           sendVerifyEmailMailing(request, authUser)
@@ -138,7 +134,6 @@ abstract class UsernamePasswordAuthProvider[V, UL <: UsernamePasswordAuthUser,
           } else {
             new LoginSignupResult(userUnverified(authUser).url)
           }
-        }
         case USER_CREATED => new LoginSignupResult(authUser)
         // TODO replace with error fallback URL
         case _ => new LoginSignupResult("/")

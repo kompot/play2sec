@@ -40,7 +40,7 @@ abstract class OAuth1AuthProvider[U <: BasicOAuth1AuthUser, I <: OAuth1AuthInfo]
   @throws(classOf[AccessTokenException])
   def buildInfo(toke: RequestToken): I
 
-  override protected def neededSettingKeys = super.neededSettingKeys ++ List(
+  override protected def requiredSettings = super.requiredSettings ++ List(
     OAuth1AuthProvider.SettingKeys.ACCESS_TOKEN_URL,
     OAuth1AuthProvider.SettingKeys.AUTHORIZATION_URL,
     OAuth1AuthProvider.SettingKeys.REQUEST_TOKEN_URL,
@@ -53,11 +53,9 @@ abstract class OAuth1AuthProvider[U <: BasicOAuth1AuthUser, I <: OAuth1AuthInfo]
 
     val uri = request.uri
 
-    if (Logger.isDebugEnabled) {
-      Logger.info("Returned with URL: '" + uri + "'")
-    }
+    Logger.info("Returned with URL: '" + uri + "'")
 
-    val c = getConfiguration
+    val c = providerConfig
 
     val key = new ConsumerKey(
       c.getString(SettingKeys.CONSUMER_KEY).get,
@@ -103,7 +101,7 @@ abstract class OAuth1AuthProvider[U <: BasicOAuth1AuthUser, I <: OAuth1AuthInfo]
 }
 
 object OAuth1AuthProvider {
-  val CACHE_TOKEN = "pa.oauth1.rtoken"
+  val CACHE_TOKEN = "p2s.oauth1.rtoken"
 
   object SettingKeys {
     val REQUEST_TOKEN_URL = "requestTokenUrl"

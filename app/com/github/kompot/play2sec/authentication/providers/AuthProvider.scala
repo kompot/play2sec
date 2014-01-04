@@ -27,20 +27,22 @@ import com.github.kompot.play2sec.authentication.providers.password
 import com.github.kompot.play2sec.authentication.user.{SessionAuthUser,
 AuthUser}
 import scala.concurrent.Future
+import com.github.kompot.play2sec.authentication
 
 abstract case class AuthProvider(app: play.api.Application) extends Plugin {
   override def onStart() {
-    def neededSettings = neededSettingKeys
+    def neededSettings = requiredSettings
     if (neededSettings.size > 0) {
-      val c = getConfiguration
-      if (c == null) {
-        throw new RuntimeException(s"No settings for provider '$getKey' available at all!")
-      }
-      for (key <- neededSettings ) {
-        val setting = c.getString(key)
-        if (setting == None) {
-          throw new RuntimeException(s"Provider '$getKey' missing needed setting '$key'.")
-        }
+      providerConfigOption match {
+        case None =>
+          throw new RuntimeException(s"No settings for provider '$getKey' available at all!")
+        case Some(c) =>
+          for (key <- neededSettings ) {
+            val setting = c.getString(key)
+            if (setting == None) {
+              throw new RuntimeException(s"Provider '$getKey' missing needed setting '$key'.")
+            }
+          }
       }
     }
     register(getKey, this)
@@ -62,8 +64,11 @@ abstract case class AuthProvider(app: play.api.Application) extends Plugin {
 
   def getKey: String
 
-  def getConfiguration =
-    com.github.kompot.play2sec.authentication.getConfiguration.get.getConfig(getKey).get
+  protected def providerConfigOption: Option[Configuration] =
+    authentication.getConfiguration.flatMap(_.getConfig(getKey))
+
+  protected def providerConfig: Configuration =
+    providerConfigOption.get
 
   /**
    * Returns either an AuthUser object or a String (URL)
@@ -82,11 +87,10 @@ abstract case class AuthProvider(app: play.api.Application) extends Plugin {
    * Mandatory settings that must be supplied in order for auth provider to work.
    * @return
    */
-  protected def neededSettingKeys: List[String]
+  protected def requiredSettings: List[String]
 
-  def getSessionAuthUser(id: String, expires: Long): AuthUser = {
+  def getSessionAuthUser(id: String, expires: Long): AuthUser =
     new SessionAuthUser(id, getKey, expires)
-  }
 
   def isExternal: Boolean
 }

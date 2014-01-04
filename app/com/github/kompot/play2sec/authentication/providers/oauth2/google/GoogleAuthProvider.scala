@@ -38,7 +38,7 @@ class GoogleAuthProvider(app: Application)
   protected override def transform(info: Future[GoogleAuthInfo], state: String): GoogleAuthUser = {
     val futureUser = for {
       i <- info
-      r <- WS.url(getConfiguration.getString(USER_INFO_URL_SETTING_KEY).get)
+      r <- WS.url(providerConfig.getString(USER_INFO_URL_SETTING_KEY).get)
           .withQueryString((OAuth2AuthProvider.Constants.ACCESS_TOKEN, i.accessToken))
           .get()
     } yield {

@@ -31,7 +31,7 @@ class AnonymousAuthProvider(implicit app: play.api.Application) extends AuthProv
     }
   }
 
-  protected def neededSettingKeys = List.empty
+  protected def requiredSettings = List.empty
 
   def isExternal = false
 }

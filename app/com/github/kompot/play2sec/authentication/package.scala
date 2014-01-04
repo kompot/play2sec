@@ -36,14 +36,15 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import ExecutionContext.Implicits.global
 
 package object authentication {
-  private val SETTING_KEY_PLAY_AUTHENTICATE = "play2sec"
-  private val SETTING_KEY_AFTER_AUTH_FALLBACK = "afterAuthFallback"
-  private val SETTING_KEY_AFTER_LOGOUT_FALLBACK = "afterLogoutFallback"
-  private val SETTING_KEY_ACCOUNT_MERGE_ENABLED = "accountMergeEnabled"
-  private val SETTING_KEY_ACCOUNT_AUTO_LINK = "accountAutoLink"
-  private val SETTING_KEY_ACCOUNT_AUTO_MERGE = "accountAutoMerge"
+  private val CFG_ROOT = "play2sec"
+  private val CFG_AFTER_AUTH_FALLBACK = "afterAuthFallback"
+  private val CFG_AFTER_LOGOUT_FALLBACK = "afterLogoutFallback"
+  private val CFG_ACCOUNT_MERGE_ENABLED = "accountMergeEnabled"
+  private val CFG_ACCOUNT_AUTO_LINK = "accountAutoLink"
+  private val CFG_ACCOUNT_AUTO_MERGE = "accountAutoMerge"
 
   private val SESSION_PREFIX       = "p2s-"
+  // TODO make this private
   val SESSION_ORIGINAL_URL         = SESSION_PREFIX + "return-url"
   private val SESSION_USER_KEY     = SESSION_PREFIX + "user-id"
   private val SESSION_PROVIDER_KEY = SESSION_PREFIX + "provider-id"
@@ -57,7 +58,7 @@ package object authentication {
   // TODO null what is it for?
   private val LINK_USER_KEY: String = null
 
-  def getConfiguration: Option[Configuration] = application.configuration.getConfig(SETTING_KEY_PLAY_AUTHENTICATE)
+  def getConfiguration: Option[Configuration] = application.configuration.getConfig(CFG_ROOT)
 
   // TODO: remove ORIGINAL_URL from session
   private def getOriginalUrl[A](request: Request[A]): Option[String] =
@@ -131,7 +132,8 @@ package object authentication {
   }
 
   def logout(session: Session): Result = {
-    Logger.info("Logging out and redirecting to " + getUrl(use[PlaySecPlugin].afterLogout, SETTING_KEY_AFTER_LOGOUT_FALLBACK))
+    Logger.info("Logging out and redirecting to " +
+        getUrl(use[PlaySecPlugin].afterLogout, CFG_AFTER_LOGOUT_FALLBACK))
 //    session.$minus(USER_KEY);
 //    session.$minus(PROVIDER_KEY);
 //    session.$minus(EXPIRES_KEY);
@@ -140,7 +142,9 @@ package object authentication {
     // cookie
 //    session.$minus(ORIGINAL_URL);
 
-    Results.Redirect(getUrl(use[PlaySecPlugin].afterLogout, SETTING_KEY_AFTER_LOGOUT_FALLBACK), REDIRECT_STATUS).withNewSession
+    Results.Redirect(
+      getUrl(use[PlaySecPlugin].afterLogout, CFG_AFTER_LOGOUT_FALLBACK), REDIRECT_STATUS)
+    .withNewSession
 //        .withNewSession
 //        .withSession(session - USER_KEY - PROVIDER_KEY - EXPIRES_KEY - ORIGINAL_URL)
   }
@@ -161,11 +165,11 @@ package object authentication {
 
   def getUser[A](request: Request[A]): Option[AuthUser] = getUser(request.session)
   def isAccountAutoMerge    = getConfiguration.flatMap(_.getBoolean(
-    SETTING_KEY_ACCOUNT_AUTO_MERGE)).getOrElse(false)
+    CFG_ACCOUNT_AUTO_MERGE)).getOrElse(false)
   def isAccountAutoLink     = getConfiguration.flatMap(_.getBoolean(
-    SETTING_KEY_ACCOUNT_AUTO_LINK)).getOrElse(false)
+    CFG_ACCOUNT_AUTO_LINK)).getOrElse(false)
   def isAccountMergeEnabled = getConfiguration.flatMap(_.getBoolean(
-    SETTING_KEY_ACCOUNT_MERGE_ENABLED)).getOrElse(false)
+    CFG_ACCOUNT_MERGE_ENABLED)).getOrElse(false)
 
   def getUrl(c: Call, settingFallback: String): String = {
     // TODO: should avoid nulls and checking for them
@@ -333,7 +337,7 @@ package object authentication {
     getOriginalUrl(request).getOrElse {
       getUrl(
         use[PlaySecPlugin].afterAuth,
-        SETTING_KEY_AFTER_AUTH_FALLBACK
+        CFG_AFTER_AUTH_FALLBACK
       )
     }
   }

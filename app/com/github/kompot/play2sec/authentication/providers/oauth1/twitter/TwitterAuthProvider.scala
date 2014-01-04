@@ -38,10 +38,10 @@ OAuth1AuthProvider[TwitterAuthUser, TwitterAuthInfo](app) {
 
   @throws(classOf[AuthException])
   override def transform(info: TwitterAuthInfo): TwitterAuthUser = {
-    val url = getConfiguration.getString(USER_INFO_URL_SETTING_KEY).get
+    val url = providerConfig.getString(USER_INFO_URL_SETTING_KEY).get
 
     val token = new RequestToken(info.token, info.tokenSecret)
-    val c = getConfiguration
+    val c = providerConfig
     val cK = new ConsumerKey(
       c.getString(OAuth1AuthProvider.SettingKeys.CONSUMER_KEY).get,
       c.getString(OAuth1AuthProvider.SettingKeys.CONSUMER_SECRET).get)

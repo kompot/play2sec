@@ -24,7 +24,7 @@ import com.github.kompot.play2sec.authentication.providers.AuthProvider
 abstract class ExternalAuthProvider(app: play.api.Application) extends AuthProvider(app) {
   override def isExternal = true
 
-  override protected def neededSettingKeys: List[String] = List.empty
+  override protected def requiredSettings: List[String] = List.empty
 
   private object SettingKeys {
     val REDIRECT_URI_HOST = "redirectUri.host"
@@ -32,8 +32,8 @@ abstract class ExternalAuthProvider(app: play.api.Application) extends AuthProvi
   }
 
   protected def getRedirectUrl[A](request: Request[A]): String = {
-    val overrideHost = getConfiguration.getString(SettingKeys.REDIRECT_URI_HOST)
-    val isHttps = getConfiguration.getBoolean(SettingKeys.REDIRECT_URI_SECURE).getOrElse(false)
+    val overrideHost = providerConfig.getString(SettingKeys.REDIRECT_URI_HOST)
+    val isHttps = providerConfig.getBoolean(SettingKeys.REDIRECT_URI_SECURE).getOrElse(false)
     val c = com.typesafe.plugin.use[PlaySecPlugin].auth(getKey)
     overrideHost match {
       case Some(oh) => "http" + (if (isHttps) "s" else "") + "://" + oh + c.url

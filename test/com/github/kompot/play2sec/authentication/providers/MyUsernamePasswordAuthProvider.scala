@@ -35,8 +35,8 @@ class MyUsernamePasswordAuthProvider(app: play.Application)
   protected val mailService = bootstrap.Global.Injector.mailService
   lazy val userService = bootstrap.Global.Injector.userService
 
-  override protected def neededSettingKeys = {
-    super.neededSettingKeys ++ List(
+  override protected def requiredSettings = {
+    super.requiredSettings ++ List(
       MyUsernamePasswordAuthProvider.SETTING_KEY_VERIFICATION_LINK_SECURE,
       MyUsernamePasswordAuthProvider.SETTING_KEY_PASSWORD_RESET_LINK_SECURE,
       MyUsernamePasswordAuthProvider.SETTING_KEY_LINK_LOGIN_AFTER_PASSWORD_RESET

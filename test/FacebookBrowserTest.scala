@@ -184,6 +184,7 @@ class FacebookBrowserTest extends PlaySpecification {
     if (Play.maybeApplication.isDefined) {
       Play.stop()
     }
+    mongod.stop()
     mongodExe.stop()
   }
 }
