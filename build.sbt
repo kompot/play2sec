@@ -54,6 +54,4 @@ play.Project.playScalaSettings ++ Seq(
   resolvers += "Sonatype Snapshots" at "http://oss.sonatype.org/content/repositories/snapshots/",
   resolvers += "Common maven repository" at "http://repo1.maven.org/maven2/",
   resolvers += "Local maven repository" at "file://" + Path.userHome.absolutePath + "/.m2/repository/"
-) ++ org.scalastyle.sbt.ScalastylePlugin.Settings ++ ScoverageSbtPlugin.instrumentSettings
-
-parallelExecution in ScoverageSbtPlugin.scoverageTest := false
+) ++ org.scalastyle.sbt.ScalastylePlugin.Settings ++ ScctPlugin.instrumentSettings
