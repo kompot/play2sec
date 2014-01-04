@@ -60,10 +60,9 @@ class MultipleBrowserSignupTest extends PlaySpecification {
       "Key test.google.id is not defined in configuration.")
 
     // first signup as a normal email/password user
-    browser.goTo("/auth")
+    browser.goTo("/auth/signup")
     browser.fill("input#email").`with`("kompotik@gmail.com")
     browser.$("#password").text("123")
-    browser.click("input#noaccount")
     browser.click("input[type = 'submit']")
 
     browser.await().atMost(1000)
@@ -90,7 +89,7 @@ class MultipleBrowserSignupTest extends PlaySpecification {
       // wait until back to localhost
       browser.url.startsWith("/")
     }
-    val user = Await(Injector.userStore.getByAuthUserIdentity(new AuthUserIdentity {
+    val user = await(Injector.userStore.getByAuthUserIdentity(new AuthUserIdentity {
       def provider = FacebookAuthProvider.PROVIDER_KEY
       def id = facebookUserId.get
     }))
@@ -118,7 +117,7 @@ class MultipleBrowserSignupTest extends PlaySpecification {
       browser.url.startsWith("/")
     }
 
-    val user1 = Await(Injector.userStore.getByAuthUserIdentity(new AuthUserIdentity {
+    val user1 = await(Injector.userStore.getByAuthUserIdentity(new AuthUserIdentity {
       def provider = TwitterAuthProvider.PROVIDER_KEY
       def id = twitterUserId.get
     }))
@@ -147,7 +146,7 @@ class MultipleBrowserSignupTest extends PlaySpecification {
       browser.url.startsWith("/")
     }
 
-    val user2 = Await(Injector.userStore.getByAuthUserIdentity(new AuthUserIdentity {
+    val user2 = await(Injector.userStore.getByAuthUserIdentity(new AuthUserIdentity {
       def provider = GoogleAuthProvider.PROVIDER_KEY
       def id = googleUserId.get
     }))

@@ -27,15 +27,23 @@ object FakeApp extends JsonWebConversions {
       Action.async { implicit request =>
         Authorization.userSignUpForm.bindFromRequest.fold(
         { errors => Future.successful(Results.BadRequest[JsValue](
-          JsResponseError("Unable to perform signup.", Some(errors)))) },
+          JsResponseError("Email signup failed.", Some(errors)))) },
         { case _ => UsernamePasswordAuthProvider.handleSignup(request) }
         )
       }
-    case ("GET", "/auth") =>
+    case ("POST", "/auth/login") =>
+      Action.async { implicit request =>
+        Authorization.userLoginForm.bindFromRequest.fold(
+        { errors => Future.successful(Results.BadRequest[JsValue](
+          JsResponseError("Email login failed.", Some(errors)))) },
+        { case _ => UsernamePasswordAuthProvider.handleLogin(request) }
+        )
+      }
+    case ("GET", "/auth/signup") | ("GET", "/auth/login") =>
       Action { implicit request =>
         Results.Ok(
           Html("""
-            <form action="/auth/signup" method="post">
+            <form method="post">
               <input type="text"     name="email"    id="email" />
               <input type="password" name="password" id="password" />
               <input type="submit" />

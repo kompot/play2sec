@@ -15,7 +15,7 @@ import play.api.libs.json.{Json, JsObject, JsString, JsValue}
 import play.api.mvc.{Call, Results, Request}
 import play.api.templates.Html
 import play.i18n.Messages
-import scala.concurrent.{ExecutionContext, Future, Await}
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 import com.github.kompot.play2sec.authentication
 import controllers.JsResponseError
@@ -98,9 +98,9 @@ class MyUsernamePasswordAuthProvider(app: play.Application)
     }
   }
 
-  protected def userExists(authUser: UsernamePasswordAuthUser) = Call("POST", "/auth/signup")
+  protected def userExists(authUser: UsernamePasswordAuthUser) = Call("GET", "/auth/user-exists")
 
-  protected def userUnverified(authUser: UsernamePasswordAuthUser) = Call("POST", "/auth/login")
+  protected def userUnverified(authUser: UsernamePasswordAuthUser) = Call("GET", "/auth/user-unverified")
 
   protected def generateSignupVerificationRecord(user: MyUsernamePasswordAuthUser) = {
     Await(tokenService.generateToken(user, Json.obj("email" -> JsString(user.email))))

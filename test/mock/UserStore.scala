@@ -68,6 +68,15 @@ class UserStore extends KvStore with UserService {
   def emailExists(email: String): Future[Boolean] =
     Future.successful(existsByAuthUserIdentity(new MyUsernamePasswordAuthUser("", email)))
 
+  def checkLoginAndPassword(email: String, password: String): Future[Boolean] = {
+    val loginUser = new MyUsernamePasswordAuthUser(password, email)
+    for {
+      dbu <- getByAuthUserIdentity(loginUser)
+    } yield {
+      dbu.exists(user => loginUser.checkPassword(user.password, password))
+    }
+  }
+
   def verifyEmail(userId: String, email: String): Future[Boolean] = {
     val user = store.find(_._1 == userId).map(_._2)
     val unconfirmedEmailUser = user.flatMap(_.remoteUsers.find(ru =>

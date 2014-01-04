@@ -35,8 +35,8 @@ import play.api.Logger
 import scala.concurrent.Future
 
 object Authorization extends Controller with DeadboltActions with JsonWebConversions {
-  val userService = Injector.userStore
-  val tokenService = Injector.tokenStore
+  val userStore = Injector.userStore
+  val tokenStore = Injector.tokenStore
 
   // TODO remove
   def auth = Action { implicit request =>
@@ -192,20 +192,20 @@ object Authorization extends Controller with DeadboltActions with JsonWebConvers
     "email" -> email
   )
 
-//  val userLoginForm = Form(
-//    loginForm.mapping.verifying(
-//      "Wrong login or password",
-//      fields => fields match {
-//        case (eml, pwd) => Await(userService.checkLoginAndPassword(eml, pwd))
-//      }
-//    )
-//  )
+  val userLoginForm = Form(
+    loginForm.mapping.verifying(
+      "Wrong login or password",
+      fields => fields match {
+        case (eml, pwd) => Await(userStore.checkLoginAndPassword(eml, pwd))
+      }
+    )
+  )
 
   val userSignUpForm = Form(
     signupForm.mapping.verifying(
       "This email has already been used.",
       fields => fields match {
-        case (eml, _) => !Await(userService.emailExists(eml))
+        case (eml, _) => !Await(userStore.emailExists(eml))
       }
     )
   )

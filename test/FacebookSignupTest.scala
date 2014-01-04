@@ -40,7 +40,7 @@ class FacebookSignupTest extends PlaySpecification {
       browser.url.startsWith("/")
     }
 
-    val user = Await(Injector.userStore.getByAuthUserIdentity(new AuthUserIdentity {
+    val user = await(Injector.userStore.getByAuthUserIdentity(new AuthUserIdentity {
       def provider = FacebookAuthProvider.PROVIDER_KEY
       def id = facebookUserId.get
     }))
