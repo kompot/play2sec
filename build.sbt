@@ -59,3 +59,4 @@ play.Project.playScalaSettings ++ Seq(
   resolvers += "Local maven repository" at "file://" + Path.userHome.absolutePath + "/.m2/repository/"
 ) ++ org.scalastyle.sbt.ScalastylePlugin.Settings ++ ScoverageSbtPlugin.instrumentSettings
 
+parallelExecution in ScoverageSbtPlugin.scoverageTest := false
