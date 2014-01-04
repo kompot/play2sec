@@ -1,3 +1,4 @@
+import bootstrap.Global.Injector
 import com.github.kompot.play2sec.authentication.providers.oauth1.twitter
 .TwitterAuthProvider
 import com.github.kompot.play2sec.authentication.providers.oauth2.facebook
@@ -5,47 +6,25 @@ import com.github.kompot.play2sec.authentication.providers.oauth2.facebook
 import com.github.kompot.play2sec.authentication.providers.oauth2.google
 .GoogleAuthProvider
 import com.github.kompot.play2sec.authentication.user.AuthUserIdentity
-import de.flapdoodle.embed.mongo.config.{Net, MongodConfigBuilder}
-import de.flapdoodle.embed.mongo.distribution.Version
-import de.flapdoodle.embed.mongo.MongodStarter
-import de.flapdoodle.embed.process.runtime.Network
 import java.util.concurrent.TimeUnit
 import mock.MailServer
-import model.{MongoWait, UserService}
+import model.Await
 import play.api.Play
 import play.api.test.{WithBrowser, PlaySpecification}
-import play.modules.reactivemongo.ReactiveMongoPlugin
-import reactivemongo.api.collections.default.BSONCollection
-import reactivemongo.bson.BSONDocument
 import scala.concurrent.ExecutionContext
 import ExecutionContext.Implicits.global
 import play.api.Play.current
 import util.StringUtils
 
-class FacebookBrowserTest extends PlaySpecification {
-  val fapp = new FakeApp
-
+class MultipleBrowserSignupTest extends PlaySpecification {
   sequential
 
-  val runtime = MongodStarter.getDefaultInstance
-  val mongodExe = runtime.prepare(new MongodConfigBuilder()
-                                  .version(Version.V2_4_8)
-                                  .net(new Net(12345, Network.localhostIsIPv6))
-                                  .build())
-  val mongod = mongodExe.start()
-
   step {
-    if (!Play.maybeApplication.isDefined) {
-      Play.start(fapp)
-    }
-    MongoWait(ReactiveMongoPlugin.db.collection[BSONCollection]("user").remove(BSONDocument()))
-    MongoWait(ReactiveMongoPlugin.db.collection[BSONCollection]("token").remove(BSONDocument()))
-    if (Play.maybeApplication.isDefined) {
-      Play.stop()
-    }
+    Injector.tokenStore.clearStore()
+    Injector.userStore.clearStore()
   }
 
-  "Accounts email and facebook should be merged" in new WithBrowser(webDriver = FIREFOX, app = fapp) {
+  "Accounts email, facebook, twitter and google should be merged" in new WithBrowser(FIREFOX, new FakeApp) {
 
     val facebookLogin    = current.configuration.getString("test.facebook.login")
     val facebookPassword = current.configuration.getString("test.facebook.password")
@@ -111,7 +90,7 @@ class FacebookBrowserTest extends PlaySpecification {
       // wait until back to localhost
       browser.url.startsWith("/")
     }
-    val user = MongoWait(new UserService().getByAuthUserIdentity(new AuthUserIdentity {
+    val user = Await(Injector.userStore.getByAuthUserIdentity(new AuthUserIdentity {
       def provider = FacebookAuthProvider.PROVIDER_KEY
       def id = facebookUserId.get
     }))
@@ -139,7 +118,7 @@ class FacebookBrowserTest extends PlaySpecification {
       browser.url.startsWith("/")
     }
 
-    val user1 = MongoWait(new UserService().getByAuthUserIdentity(new AuthUserIdentity {
+    val user1 = Await(Injector.userStore.getByAuthUserIdentity(new AuthUserIdentity {
       def provider = TwitterAuthProvider.PROVIDER_KEY
       def id = twitterUserId.get
     }))
@@ -168,7 +147,7 @@ class FacebookBrowserTest extends PlaySpecification {
       browser.url.startsWith("/")
     }
 
-    val user2 = MongoWait(new UserService().getByAuthUserIdentity(new AuthUserIdentity {
+    val user2 = Await(Injector.userStore.getByAuthUserIdentity(new AuthUserIdentity {
       def provider = GoogleAuthProvider.PROVIDER_KEY
       def id = googleUserId.get
     }))
@@ -176,15 +155,7 @@ class FacebookBrowserTest extends PlaySpecification {
   }
 
   step {
-    if (!Play.maybeApplication.isDefined) {
-      Play.start(fapp)
-    }
-    MongoWait(ReactiveMongoPlugin.db.collection[BSONCollection]("user").remove(BSONDocument()))
-    MongoWait(ReactiveMongoPlugin.db.collection[BSONCollection]("token").remove(BSONDocument()))
-    if (Play.maybeApplication.isDefined) {
-      Play.stop()
-    }
-    mongod.stop()
-    mongodExe.stop()
+    Injector.tokenStore.clearStore()
+    Injector.userStore.clearStore()
   }
 }

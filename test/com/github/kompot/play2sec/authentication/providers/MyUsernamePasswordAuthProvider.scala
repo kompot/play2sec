@@ -31,9 +31,9 @@ class MyUsernamePasswordAuthProvider(app: play.Application)
     extends UsernamePasswordAuthProvider[Token, MyLoginUsernamePasswordAuthUser,
         MyUsernamePasswordAuthUser, MyUsernamePasswordAuthUser, (String, String),
         (String, String), String] with JsonWebConversions {
-  lazy val tokenService = bootstrap.Global.Injector.tokenService
+  lazy val tokenService = bootstrap.Global.Injector.tokenStore
   protected val mailService = bootstrap.Global.Injector.mailService
-  lazy val userService = bootstrap.Global.Injector.userService
+  lazy val userService = bootstrap.Global.Injector.userStore
 
   override protected def requiredSettings = {
     super.requiredSettings ++ List(
@@ -103,7 +103,7 @@ class MyUsernamePasswordAuthProvider(app: play.Application)
   protected def userUnverified(authUser: UsernamePasswordAuthUser) = Call("POST", "/auth/login")
 
   protected def generateSignupVerificationRecord(user: MyUsernamePasswordAuthUser) = {
-    MongoWait(tokenService.generateToken(user, Json.obj("email" -> JsString(user.email))))
+    Await(tokenService.generateToken(user, Json.obj("email" -> JsString(user.email))))
   }
 
   protected def generateResetPasswordVerificationRecord(user: MyUsernamePasswordAuthUser) =

@@ -20,4 +20,6 @@ import com.github.kompot.play2sec.authentication.user.AuthUser
 
 abstract class OAuth2AuthUser(id: String, info: OAuth2AuthInfo, state: String) extends AuthUser {
   override def expires = info.expires
+
+  override def confirmedRightAway = true
 }

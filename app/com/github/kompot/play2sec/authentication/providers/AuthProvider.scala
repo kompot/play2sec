@@ -92,5 +92,6 @@ abstract case class AuthProvider(app: play.api.Application) extends Plugin {
   def getSessionAuthUser(id: String, expires: Long): AuthUser =
     new SessionAuthUser(id, getKey, expires)
 
+  // TODO what is it for?
   def isExternal: Boolean
 }

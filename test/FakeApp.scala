@@ -4,7 +4,7 @@ import com.github.kompot.play2sec.authentication.providers.password
 .UsernamePasswordAuthProvider
 import com.github.kompot.play2sec.authentication.user.AuthUser
 import controllers.{JsonWebConversions, JsResponseError, Authorization}
-import model.MongoWait
+import model.Await
 import play.api.libs.json.JsValue
 import play.api.mvc.{Handler, Results, Action}
 import play.api.templates.Html
@@ -45,10 +45,10 @@ object FakeApp extends JsonWebConversions {
     case ("GET", "/auth/verify-email") =>
       Action.async { implicit request =>
         for {
-          maybeToken <- Injector.tokenService.getValidTokenBySecurityKey(request.getQueryString("token").get)
+          maybeToken <- Injector.tokenStore.getValidTokenBySecurityKey(request.getQueryString("token").get)
           email = maybeToken.get.data.\("email").as[String]
-          res <- Injector.userService.verifyEmail(maybeToken.get.userId, email)
-          maybeUser <- Injector.userService.get(maybeToken.get.userId)
+          res <- Injector.userStore.verifyEmail(maybeToken.get.userId, email)
+          maybeUser <- Injector.userStore.get(maybeToken.get.userId)
         } yield {
           if (maybeUser.isDefined) {
             if (maybeUser.get.remoteUsers.exists{ r =>
@@ -59,7 +59,7 @@ object FakeApp extends JsonWebConversions {
                 def id = email
                 def provider = UsernamePasswordAuthProvider.PROVIDER_KEY
               }
-              MongoWait(authentication.loginAndRedirect(request, Future.successful(identity)))
+              Await(authentication.loginAndRedirect(request, Future.successful(identity)))
             } else {
               Results.InternalServerError("Email was not verified.")
             }
@@ -71,8 +71,6 @@ object FakeApp extends JsonWebConversions {
     case ("GET", "/") => Action(Results.Ok("It's home baby"))
   }
   val additionalConfiguration = Map(
-    "mongodb.db" -> "play2sec-test",
-    "mongodb.servers" -> List("localhost:12345"),
     "application.secret" -> "123",
     "application.global" -> "bootstrap.Global",
     "play2sec.facebook.authorizationUrl" -> "https://graph.facebook.com/oauth/authorize",
@@ -110,7 +108,6 @@ object FakeApp extends JsonWebConversions {
 
   val additionalPlugins = Seq(
     "mock.FixedEhCachePlugin",
-    "play.modules.reactivemongo.ReactiveMongoPlugin",
     "com.typesafe.plugin.CommonsMailerPlugin",
     "com.github.kompot.play2sec.authentication.providers.MyUsernamePasswordAuthProvider",
     "com.github.kompot.play2sec.authentication.providers.oauth1.twitter.TwitterAuthProvider",

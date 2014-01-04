@@ -197,6 +197,7 @@ package object authentication {
 //    case _ => throw new AuthException("Provider %s is not defined".format(providerKey))
 //  }
 
+  // TODO is it used?
   def link[A](request: Request[A], link: Boolean): Future[SimpleResult] = {
     val linkUser = getLinkUser(request.session)
 
@@ -228,9 +229,8 @@ package object authentication {
     }
   }
 
-  def getLinkUser(session: Session): Option[AuthUser] = {
+  def getLinkUser(session: Session): Option[AuthUser] =
     getUserFromCache(session, LINK_USER_KEY)
-  }
 
   def loginAndRedirect[A](request: Request[A], loginUser: Future[AuthUser]): Future[SimpleResult] = {
     for {
@@ -388,7 +388,7 @@ package object authentication {
     // 3. The account is NOT linked to a local account and NO session cookie is present
     // --> Signup
     // 4. The account is NOT linked to a local account and  a session cookie is present
-    // --> Linking additional account
+    // --> Link
 
     var oldUser = getUser(request.session)
     val isLoggggedIn = isLoggedIn(request.session)

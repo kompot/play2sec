@@ -4,13 +4,11 @@
 
 package model
 
-import reactivemongo.bson.BSONObjectID
 import org.joda.time.DateTime
-import play.api.libs.json.{JsObject, JsNull, JsValue}
+import play.api.libs.json.JsObject
 
 /**
- * Security token that allows restricted actions via email for limited time.
+ * Security token that allows restricted actions via email.
  */
-case class Token(_id: BSONObjectID, userId: BSONObjectID,
-    securityKey: String, created: DateTime, expires: DateTime,
-    data: JsObject) extends MongoEntity
+case class Token(_id: String, userId: String,
+    securityKey: String, created: DateTime, data: JsObject)

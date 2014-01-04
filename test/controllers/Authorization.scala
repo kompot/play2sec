@@ -28,16 +28,15 @@ import play.api.libs.json.JsString
 import play.api.libs.json.JsBoolean
 import scala.Some
 import play.api.libs.json.JsObject
-import model.MongoWait
+import model.Await
 import bootstrap.Global.Injector
 import scala.concurrent.ExecutionContext.Implicits.global
-import reactivemongo.bson.BSONObjectID
 import play.api.Logger
 import scala.concurrent.Future
 
 object Authorization extends Controller with DeadboltActions with JsonWebConversions {
-  val userService = Injector.userService
-  val tokenService = Injector.tokenService
+  val userService = Injector.userStore
+  val tokenService = Injector.tokenStore
 
   // TODO remove
   def auth = Action { implicit request =>
@@ -45,17 +44,17 @@ object Authorization extends Controller with DeadboltActions with JsonWebConvers
     Ok("hello world")
   }
 
-  def login = Action.async { implicit request => userLoginForm.bindFromRequest.fold(
-    { errors => Future.successful(BadRequest[JsValue](JsResponseError("Unable to perform login.", Some(errors)))) },
-    { case _ => UsernamePasswordAuthProvider.handleLogin(request) }
-  ) }
+//  def login = Action.async { implicit request => userLoginForm.bindFromRequest.fold(
+//    { errors => Future.successful(BadRequest[JsValue](JsResponseError("Unable to perform login.", Some(errors)))) },
+//    { case _ => UsernamePasswordAuthProvider.handleLogin(request) }
+//  ) }
 
-  def signup = Action.async { implicit request =>
-    userSignUpForm.bindFromRequest.fold(
-    { errors => Future.successful(BadRequest[JsValue](JsResponseError("Unable to perform signup.", Some(errors)))) },
-    { case _ => UsernamePasswordAuthProvider.handleSignup(request) }
-    )
-  }
+//  def signup = Action.async { implicit request =>
+//    userSignUpForm.bindFromRequest.fold(
+//    { errors => Future.successful(BadRequest[JsValue](JsResponseError("Unable to perform signup.", Some(errors)))) },
+//    { case _ => UsernamePasswordAuthProvider.handleSignup(request) }
+//    )
+//  }
 
   def authenticate(provider: String) = Action.async { implicit request =>
     authentication.handleAuthentication(provider, request)
@@ -70,27 +69,27 @@ object Authorization extends Controller with DeadboltActions with JsonWebConvers
 
   // since method works only for current user, no extra security is required
   // should it be allowed to admins to unlink remote users?
-  def unlink(provider: String) = SubjectPresent(new CustomDeadboltHandler()) {
-    Action.async { implicit request =>
-      val currentUser = authentication.getUser(request.session)
-      userService.getByAuthUserIdentity(currentUser).map { user =>
-        val prov = user.get.remoteUsers.find(r => r.provider == provider)
-        val rup = userService.authUserProviderToRemoteUserProvider(currentUser.get)
-        prov.map{ p =>
-          if (p.provider == rup.toString) {
-            Forbidden[JsValue](JsResponseError(s"Can't unlink provider you are currently logged in with."))
-          } else if (user.get.remoteUsers.size == 1) {
-            Forbidden[JsValue](JsResponseError(s"Can't unlink last provider to log in with."))
-          } else {
-            authentication.getUserService.unlink(currentUser, provider)
-            Ok[JsValue](JsResponseOk(s"Remote provider $provider has been unlinked."))
-          }
-        }.getOrElse(
-          Forbidden[JsValue](JsResponseError(s"Provider $provider not found"))
-        )
-      }
-    }
-  }
+//  def unlink(provider: String) = SubjectPresent(new CustomDeadboltHandler()) {
+//    Action.async { implicit request =>
+//      val currentUser = authentication.getUser(request.session)
+//      userService.getByAuthUserIdentity(currentUser).map { user =>
+//        val prov = user.get.remoteUsers.find(r => r.provider == provider)
+//        val rup = userService.authUserProviderToRemoteUserProvider(currentUser.get)
+//        prov.map{ p =>
+//          if (p.provider == rup.toString) {
+//            Forbidden[JsValue](JsResponseError(s"Can't unlink provider you are currently logged in with."))
+//          } else if (user.get.remoteUsers.size == 1) {
+//            Forbidden[JsValue](JsResponseError(s"Can't unlink last provider to log in with."))
+//          } else {
+//            authentication.getUserService.unlink(currentUser, provider)
+//            Ok[JsValue](JsResponseOk(s"Remote provider $provider has been unlinked."))
+//          }
+//        }.getOrElse(
+//          Forbidden[JsValue](JsResponseError(s"Provider $provider not found"))
+//        )
+//      }
+//    }
+//  }
 
   def createAnonymousAccount(returnTo: String) = SubjectNotPresent(new CustomDeadboltHandler()) {
     Action.async { implicit request =>
@@ -111,55 +110,55 @@ object Authorization extends Controller with DeadboltActions with JsonWebConvers
     authentication.logout(request.session)
   }
 
-  def verifyEmailAndLogin(token: String) = Action.async { implicit request =>
-    for {
-      maybeToken <- tokenService.getValidTokenBySecurityKey(token)
-      email = maybeToken.get.data.\("email").as[String]
-      res <- userService.verifyEmail(maybeToken.get.userId, email)
-      maybeUser <- userService.get(maybeToken.get.userId)
-    } yield {
-      if (maybeUser.isDefined) {
-        if (maybeUser.get.remoteUsers.exists{ r =>
-            r.provider == UsernamePasswordAuthProvider.PROVIDER_KEY &&
-            r.id == email && r.isConfirmed
-        }) {
-          val identity = new AuthUser {
-            def id = email
-            def provider = UsernamePasswordAuthProvider.PROVIDER_KEY
-          }
-          MongoWait(authentication.loginAndRedirect(request, Future.successful(identity)))
-        } else {
-          InternalServerError("Email was not verified.")
-        }
-      } else {
-        InternalServerError("Email was not verified.")
-      }
-    }
-  }
+//  def verifyEmailAndLogin(token: String) = Action.async { implicit request =>
+//    for {
+//      maybeToken <- tokenService.getValidTokenBySecurityKey(token)
+//      email = maybeToken.get.data.\("email").as[String]
+//      res <- userService.verifyEmail(maybeToken.get.userId, email)
+//      maybeUser <- userService.get(maybeToken.get.userId)
+//    } yield {
+//      if (maybeUser.isDefined) {
+//        if (maybeUser.get.remoteUsers.exists{ r =>
+//            r.provider == UsernamePasswordAuthProvider.PROVIDER_KEY &&
+//            r.id == email && r.isConfirmed
+//        }) {
+//          val identity = new AuthUser {
+//            def id = email
+//            def provider = UsernamePasswordAuthProvider.PROVIDER_KEY
+//          }
+//          Await(authentication.loginAndRedirect(request, Future.successful(identity)))
+//        } else {
+//          InternalServerError("Email was not verified.")
+//        }
+//      } else {
+//        InternalServerError("Email was not verified.")
+//      }
+//    }
+//  }
 
-  def allowed = Action { implicit request =>
-    allowedForm.bindFromRequest().fold(
-      errors => Forbidden(s"Not allowed"),
-      { case (zone, meta) => {
-        AsyncResult {
-          for {
-            maybeUser <- userService.getByAuthUserIdentity(authentication.getUser(request))
-          } yield {
-            val allowed = maybeUser.exists { u =>
-              val adh = new CustomDeadboltHandler()
-              adh.getDynamicResourceHandler(request).get.isAllowed(
-                zone + "$",
-                Form("meta" -> nonEmptyText).bind(Map(("meta", meta))),
-                adh, request)
-            }
-            Ok(Json.obj(
-              (zone, JsBoolean(allowed))
-            ))
-          }
-        }
-      } }
-    )
-  }
+//  def allowed = Action { implicit request =>
+//    allowedForm.bindFromRequest().fold(
+//      errors => Forbidden(s"Not allowed"),
+//      { case (zone, meta) => {
+//        AsyncResult {
+//          for {
+//            maybeUser <- userService.getByAuthUserIdentity(authentication.getUser(request))
+//          } yield {
+//            val allowed = maybeUser.exists { u =>
+//              val adh = new CustomDeadboltHandler()
+//              adh.getDynamicResourceHandler(request).get.isAllowed(
+//                zone + "$",
+//                Form("meta" -> nonEmptyText).bind(Map(("meta", meta))),
+//                adh, request)
+//            }
+//            Ok(Json.obj(
+//              (zone, JsBoolean(allowed))
+//            ))
+//          }
+//        }
+//      } }
+//    )
+//  }
 
   val allowedForm = Form(tuple(
     // TODO: replace with real zone binding
@@ -193,20 +192,20 @@ object Authorization extends Controller with DeadboltActions with JsonWebConvers
     "email" -> email
   )
 
-  val userLoginForm = Form(
-    loginForm.mapping.verifying(
-      "Wrong login or password",
-      fields => fields match {
-        case (eml, pwd) => MongoWait(userService.checkLoginAndPassword(eml, pwd))
-      }
-    )
-  )
+//  val userLoginForm = Form(
+//    loginForm.mapping.verifying(
+//      "Wrong login or password",
+//      fields => fields match {
+//        case (eml, pwd) => Await(userService.checkLoginAndPassword(eml, pwd))
+//      }
+//    )
+//  )
 
   val userSignUpForm = Form(
     signupForm.mapping.verifying(
       "This email has already been used.",
       fields => fields match {
-        case (eml, _) => !MongoWait(userService.emailExists(eml))
+        case (eml, _) => !Await(userService.emailExists(eml))
       }
     )
   )

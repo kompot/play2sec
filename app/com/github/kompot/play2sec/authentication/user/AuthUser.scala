@@ -21,6 +21,8 @@ import org.apache.commons.lang3.LocaleUtils
 
 trait AuthUser extends AuthUserIdentity {
   def expires = AuthUser.NO_EXPIRATION
+  
+  def confirmedRightAway = false
 
   override def toString = AuthUser.toString(this)
 }

@@ -4,16 +4,15 @@
 
 package model
 
-import reactivemongo.bson.BSONObjectID
 import com.github.kompot.play2sec.authorization.core.models.{Permission,
 Subject}
 import com.github.kompot.play2sec.authorization.core.DeadboltRole
 
-case class User(_id: BSONObjectID, username: Option[String], password: Option[String],
+case class User(_id: String, username: Option[String], password: Option[String],
     nameLast: String = "", nameFirst: String = "",
     remoteUsers: Set[RemoteUser], isBlocked: Boolean = false,
     roles: Set[String] = Set())
-    extends MongoEntity with Subject {
+    extends Subject {
 
   def emailValidated: Boolean = remoteUsers.count(ru =>
     ru.provider == RemoteUserProvider.email.toString && ru.isConfirmed) == 1
@@ -34,5 +33,5 @@ case class User(_id: BSONObjectID, username: Option[String], password: Option[St
 
   def getPermissions: List[Permission] = ???
 
-  def pk = _id.stringify
+  def pk = _id
 }

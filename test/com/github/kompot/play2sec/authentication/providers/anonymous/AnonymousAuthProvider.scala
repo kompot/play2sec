@@ -5,7 +5,6 @@
 package com.github.kompot.play2sec.authentication.providers.anonymous
 
 import play.api.mvc.Request
-import reactivemongo.bson.BSONObjectID
 import com.github.kompot.play2sec.authentication.PlaySecPlugin
 import com.github.kompot.play2sec.authentication.providers.AuthProvider
 import com.github.kompot.play2sec.authentication.providers.password
@@ -13,6 +12,7 @@ import com.github.kompot.play2sec.authentication.providers.password
 import com.github.kompot.play2sec.authentication
 import scala.concurrent.{ExecutionContext, Future}
 import ExecutionContext.Implicits.global
+import mock.KvStore
 
 class AnonymousAuthProvider(implicit app: play.api.Application) extends AuthProvider(app) {
   def getKey = "anonymous"
@@ -20,7 +20,7 @@ class AnonymousAuthProvider(implicit app: play.api.Application) extends AuthProv
   def authenticate[A](request: Request[A], payload: Option[Case.Value]) = {
     payload match {
       case Case.SIGNUP => {
-        val user = new AnonymousAuthUser(BSONObjectID.generate.stringify)
+        val user = new AnonymousAuthUser(KvStore.generateId)
         for {
           u <- authentication.getUserService.save(user)
         } yield {

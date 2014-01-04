@@ -8,7 +8,6 @@ import collection.immutable.Map
 import play.api.mvc.Request
 import play.api.data.Form
 import scala.concurrent.ExecutionContext.Implicits.global
-import reactivemongo.bson.BSONObjectID
 import com.github.kompot.play2sec.authorization.scala.{DeadboltHandler,
 DynamicResourceHandler}
 import com.github.kompot.play2sec.authorization.core.models.Subject
@@ -70,12 +69,12 @@ object MyDynamicResourceHandler {
   }
 
   private def isSelf(id: String, subj: Subject): Boolean = {
-//    MongoWait(userService.get(BSONObjectID(id))).map(_.id == BSONObjectID(subj.pk)).getOrElse(false)
+//    Await(userService.get(BSONObjectID(id))).map(_.id == BSONObjectID(subj.pk)).getOrElse(false)
     true
   }
 
   private def isSelfByUsername(id: String, subj: Subject): Boolean = {
-//    MongoWait(userService.getByUsernameOrId(id)).map(_.id == BSONObjectID(subj.pk)).getOrElse(false)
+//    Await(userService.getByUsernameOrId(id)).map(_.id == BSONObjectID(subj.pk)).getOrElse(false)
     true
   }
 }

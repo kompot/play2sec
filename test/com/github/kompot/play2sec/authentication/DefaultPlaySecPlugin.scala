@@ -26,7 +26,7 @@ class DefaultPlaySecPlugin(app: play.api.Application) extends PlaySecPlugin
 
   def onException(e: AuthException) = new Call("GET", "/onException")
 
-  def userService = bootstrap.Global.Injector.userService
+  def userService = bootstrap.Global.Injector.userStore
 
   def afterAuthJson(loginUser: AuthUser) = Results.Ok[JsValue](
     JsResponseOk("Welcome to Example.com.", Json.obj(

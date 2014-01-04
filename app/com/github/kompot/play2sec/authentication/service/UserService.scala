@@ -54,7 +54,7 @@ trait UserService {
   def merge(newUser: AuthUser, oldUser: Option[AuthUser]): Future[AuthUser]
 
   /**
-   * Links a new account to an exsting local user.
+   * Links a new account to an existing local user.
    * Returns the auth user to log in with
    *
    * @param oldUser
