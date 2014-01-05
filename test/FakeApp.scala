@@ -76,6 +76,10 @@ object FakeApp extends JsonWebConversions {
           }
         }
       }
+    case ("GET", "/auth/logout") =>
+      Action { implicit request =>
+        authentication.logout(request)
+      }
     case ("GET", "/") => Action(Results.Ok("It's home baby"))
   }
   val additionalConfiguration = Map(

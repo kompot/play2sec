@@ -49,13 +49,13 @@ package object authentication {
   private val CFG_ACCOUNT_AUTO_LINK = "accountAutoLink"
   private val CFG_ACCOUNT_AUTO_MERGE = "accountAutoMerge"
 
-  private val SESSION_PREFIX       = "p2s-"
+  private val PREFIX       = "p2s-"
   // TODO make this private
-  val SESSION_ORIGINAL_URL         = SESSION_PREFIX + "return-url"
-  private val SESSION_USER_KEY     = SESSION_PREFIX + "user-id"
-  private val SESSION_PROVIDER_KEY = SESSION_PREFIX + "provider-id"
-  private val SESSION_EXPIRES_KEY  = SESSION_PREFIX + "exp"
-  private val SESSION_ID_KEY       = SESSION_PREFIX + "session-id"
+  val SESSION_ORIGINAL_URL         = PREFIX + "return-url"
+  private val SESSION_USER_KEY     = PREFIX + "user-id"
+  private val SESSION_PROVIDER_KEY = PREFIX + "provider-id"
+  private val SESSION_EXPIRES_KEY  = PREFIX + "exp"
+  private val SESSION_ID_KEY       = PREFIX + "session-id"
 
   private val REDIRECT_STATUS = 303
 
@@ -93,7 +93,7 @@ package object authentication {
    * @param session
    * @return
    */
-  def isLoggedIn(session: Session): Boolean = {
+  private def isLoggedIn(session: Session): Boolean = {
     val idAndProviderAreNotEmpty = session.get(SESSION_USER_KEY).isDefined && session.get(SESSION_PROVIDER_KEY).isDefined
     val providerIsRegistered = com.github.kompot.play2sec.authentication.providers.hasProvider(session.get(SESSION_PROVIDER_KEY).getOrElse(""))
 
@@ -137,22 +137,9 @@ package object authentication {
 //    return expires;
   }
 
-  def logout(session: Session): SimpleResult = {
-    Logger.info("Logging out and redirecting to " +
-        getUrl(use[PlaySecPlugin].afterLogout, CFG_AFTER_LOGOUT_FALLBACK))
-//    session.$minus(USER_KEY);
-//    session.$minus(PROVIDER_KEY);
-//    session.$minus(EXPIRES_KEY);
-
-    // shouldn't be in any more, but just in case lets kill it from the
-    // cookie
-//    session.$minus(ORIGINAL_URL);
-
-    Results.Redirect(
-      getUrl(use[PlaySecPlugin].afterLogout, CFG_AFTER_LOGOUT_FALLBACK), REDIRECT_STATUS)
-    .withNewSession
-//        .withNewSession
-//        .withSession(session - USER_KEY - PROVIDER_KEY - EXPIRES_KEY - ORIGINAL_URL)
+  def logout[A](request: Request[A]): SimpleResult = {
+    Logger.info("Logging out")
+    use[PlaySecPlugin].afterLogout(request.body).withNewSession
   }
 
   /**
@@ -382,29 +369,29 @@ package object authentication {
     // 4. The account is NOT linked to a local account and  a session cookie is present
     // --> Link
 
-    var oldUser = getUser(request.session)
+    val oldUser = getUser(request.session)
     val loggedIn = isLoggedIn(request.session)
     val b = for {
-      oldIdentity <- if (loggedIn) getUserService.getByAuthUserIdentity(oldUser.get) else Future.successful(None)
+      oldIdentity <-
+        if (loggedIn) getUserService.getByAuthUserIdentity(oldUser.get)
+        else Future.successful(None)
       loginIdentity <- getUserService.getByAuthUserIdentity(newUser)
     } yield {
-      // TODO: could never fall into this if :(
+      // should fall here if user is in session but has been deleted from storage
       if (loggedIn && oldIdentity == None) {
         Logger.info("User is logged in but identity is not found. " +
             "Probably session has expired. Will log out.")
-        oldUser = None
-        logout(request.session)
+        return Future.successful(logout(request))
       }
 
       val linked = loginIdentity != None
 
-      Logger.info(s"IsLinked: $linked, isLoggggedIn: $loggedIn")
+      Logger.info(s"IsLinked: $linked, isLoggedIn: $loggedIn")
       val loginUser: Future[AuthUser] = (linked, loggedIn) match {
-        case (true, false) => {
+        case (true, false) =>
           Logger.info("Performing login.")
           Future.successful(newUser)
-        }
-        case (true, true) => {
+        case (true, true) =>
           Logger.info("Performing merge.")
           if (isAccountMergeEnabled && !loginIdentity.equals(oldIdentity)) {
             if (isAccountAutoMerge) {
@@ -424,12 +411,10 @@ package object authentication {
             // in to the new user
             Future.successful(newUser)
           }
-        }
-        case (false, false) => {
+        case (false, false) =>
           Logger.info("Performing sign up.")
           signupUser(newUser)
-        }
-        case (false, true) => {
+        case (false, true) =>
           if (isAccountAutoLink) {
             Logger.info(s"Linking additional account.")
             getUserService.link(oldUser, newUser)
@@ -439,7 +424,6 @@ package object authentication {
             storeLinkUser(newUser, request.session)
             return Future.successful(Results.Redirect(use[PlaySecPlugin].askLink))
           }
-        }
       }
       loginAndRedirect(request, loginUser)
     }

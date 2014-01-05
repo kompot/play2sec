@@ -80,6 +80,12 @@ class LoginPasswordTest extends PlaySpecification {
 
     browser.await().atMost(1000)
     browser.url.contains("/after-auth") mustEqual true
+
+    browser.getCookie("PLAY_SESSION") mustNotEqual null
+    browser.goTo("/auth/logout")
+    // cookie should get cleared after logout
+    browser.getCookie("PLAY_SESSION") mustEqual null
+    browser.url.contains("/after-logout") mustEqual true
   }
 
   step {

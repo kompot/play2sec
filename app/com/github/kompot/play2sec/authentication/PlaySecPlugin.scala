@@ -23,6 +23,8 @@ import com.github.kompot.play2sec.authentication.service.UserService
 
 // TODO should be no `Call` in return; only SimpleResults based on request type
 trait PlaySecPlugin extends Plugin {
+  def userService: UserService
+
   /**
    * What to do when user is authenticated.
    * `A` type is play.api.mvc.AnyContent
@@ -34,7 +36,7 @@ trait PlaySecPlugin extends Plugin {
 
   def askLink: Call
 
-  def afterLogout: Call
+  def afterLogout[A](a: A): SimpleResult
 
   def auth(provider: String): Call
 
@@ -42,6 +44,4 @@ trait PlaySecPlugin extends Plugin {
 
   @deprecated("Should not handle application level exceptions", "0.0.2")
   def onException(e: AuthException): Call
-
-  def userService: UserService
 }

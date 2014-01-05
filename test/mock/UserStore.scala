@@ -27,9 +27,9 @@ class UserStore extends KvStore with UserService {
       Future.successful(None)
 
   def getByAuthUserIdentity(authUser: AuthUserIdentity) =
-    Future.successful(store.find(_._2.remoteUsers.exists(ru =>
+    Future.successful(store.find(u => u._2.remoteUsers.exists(ru =>
       ru.id       == authUser.id &&
-      ru.provider == authUserProviderToRemoteUserProvider(authUser).toString)).map(_._2))
+      ru.provider == authUserProviderToRemoteUserProvider(authUser).toString) && !u._2.isBlocked).map(_._2))
 
   def merge(newUser: AuthUser, oldUser: Option[AuthUser]) = {
     link(oldUser, newUser)
@@ -94,6 +94,11 @@ class UserStore extends KvStore with UserService {
     }
   }
 
+  /**
+   * Similar to getByAuthUserIdentity but does not check whether User is blocked.
+   * @param authUser
+   * @return
+   */
   private def existsByAuthUserIdentity(authUser: AuthUser): Boolean =
     store.exists(_._2.remoteUsers.exists(ru =>
       ru.id       == authUser.id &&

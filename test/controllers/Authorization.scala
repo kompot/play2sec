@@ -107,7 +107,7 @@ object Authorization extends Controller with DeadboltActions with JsonWebConvers
   }
 
   def logout = Action { implicit request =>
-    authentication.logout(request.session)
+    authentication.logout(request)
   }
 
 //  def verifyEmailAndLogin(token: String) = Action.async { implicit request =>

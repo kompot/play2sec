@@ -18,19 +18,22 @@ import play.api.libs.json.JsString
 
 class DefaultPlaySecPlugin(app: play.api.Application) extends PlaySecPlugin
     with JsonWebConversions {
+  def userService = bootstrap.Global.Injector.userStore
+
   def askMerge = new Call("GET", "/auth/ask-merge")
 
   def askLink = new Call("GET", "/auth/ask-link")
 
-  def afterLogout = new Call("GET", "/after-logout")
+  def afterLogout[A](a: A) = a match {
+    case AnyContentAsJson(_) => Results.Ok(JsString("Bye-bye"))
+    case _ =>                   Results.Redirect(new Call("GET", "/after-logout"))
+  }
 
   def auth(provider: String) = new Call("GET", s"/auth/external/$provider")
 
   def login = new Call("GET", "/login")
 
   def onException(e: AuthException) = new Call("GET", "/onException")
-
-  def userService = bootstrap.Global.Injector.userStore
 
   def afterAuth[A](a: A) = a match {
     case AnyContentAsJson(_) => Results.Ok(JsString("Welcome"))
