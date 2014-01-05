@@ -141,7 +141,7 @@ abstract class UsernamePasswordAuthProvider[V, UL <: UsernamePasswordAuthUser,
     }
   }
 
-  override def isExternal = false
+  override val isExternal = false
 
   // TODO used?
 //  override def getSessionAuthUser(id: String, expires: Long): AuthUser

@@ -31,13 +31,13 @@ import com.github.kompot.play2sec.authentication
 
 abstract case class AuthProvider(app: play.api.Application) extends Plugin {
   override def onStart() {
-    def neededSettings = requiredSettings
-    if (neededSettings.size > 0) {
+    val settings = requiredSettings
+    if (settings.size > 0) {
       providerConfigOption match {
         case None =>
           throw new RuntimeException(s"No settings for provider '$getKey' available at all!")
         case Some(c) =>
-          for (key <- neededSettings ) {
+          for (key <- settings) {
             val setting = c.getString(key)
             if (setting == None) {
               throw new RuntimeException(s"Provider '$getKey' missing needed setting '$key'.")
@@ -93,5 +93,5 @@ abstract case class AuthProvider(app: play.api.Application) extends Plugin {
     new SessionAuthUser(id, getKey, expires)
 
   // TODO what is it for?
-  def isExternal: Boolean
+  val isExternal: Boolean
 }

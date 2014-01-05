@@ -33,5 +33,5 @@ class AnonymousAuthProvider(implicit app: play.api.Application) extends AuthProv
 
   protected def requiredSettings = List.empty
 
-  def isExternal = false
+  override val isExternal = false
 }

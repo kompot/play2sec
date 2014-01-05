@@ -22,7 +22,7 @@ import com.github.kompot.play2sec.authentication.PlaySecPlugin
 import com.github.kompot.play2sec.authentication.providers.AuthProvider
 
 abstract class ExternalAuthProvider(app: play.api.Application) extends AuthProvider(app) {
-  override def isExternal = true
+  override val isExternal = true
 
   override protected def requiredSettings: List[String] = List.empty
 
