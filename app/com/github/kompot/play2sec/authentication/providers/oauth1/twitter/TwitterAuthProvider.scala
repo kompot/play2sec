@@ -34,7 +34,7 @@ class TwitterAuthProvider(app: Application) extends
 OAuth1AuthProvider[TwitterAuthUser, TwitterAuthInfo](app) {
   val USER_INFO_URL_SETTING_KEY = "userInfoUrl"
 
-  override def getKey = TwitterAuthProvider.PROVIDER_KEY
+  override val key = TwitterAuthProvider.PROVIDER_KEY
 
   @throws(classOf[AuthException])
   override def transform(info: TwitterAuthInfo): TwitterAuthUser = {

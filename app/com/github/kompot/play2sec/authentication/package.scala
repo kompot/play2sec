@@ -37,8 +37,14 @@ import ExecutionContext.Implicits.global
 
 package object authentication {
   private val CFG_ROOT = "play2sec"
+  // TODO why using fallback links when we are enforced to use
+  // PlaySecPlugin which forces us to define constrains and guides through
+  // the interface
+  @deprecated("Force constraints via PlaySecPlugin", "0.0.2")
   private val CFG_AFTER_AUTH_FALLBACK = "afterAuthFallback"
+  @deprecated("Force constraints via PlaySecPlugin", "0.0.2")
   private val CFG_AFTER_LOGOUT_FALLBACK = "afterLogoutFallback"
+  @deprecated("Force constraints via PlaySecPlugin", "0.0.2")
   private val CFG_ACCOUNT_MERGE_ENABLED = "accountMergeEnabled"
   private val CFG_ACCOUNT_AUTO_LINK = "accountAutoLink"
   private val CFG_ACCOUNT_AUTO_MERGE = "accountAutoMerge"
@@ -131,7 +137,7 @@ package object authentication {
 //    return expires;
   }
 
-  def logout(session: Session): Result = {
+  def logout(session: Session): SimpleResult = {
     Logger.info("Logging out and redirecting to " +
         getUrl(use[PlaySecPlugin].afterLogout, CFG_AFTER_LOGOUT_FALLBACK))
 //    session.$minus(USER_KEY);
@@ -171,6 +177,7 @@ package object authentication {
   def isAccountMergeEnabled = getConfiguration.flatMap(_.getBoolean(
     CFG_ACCOUNT_MERGE_ENABLED)).getOrElse(false)
 
+  @deprecated("Force constraints via PlaySecPlugin", "0.0.2")
   def getUrl(c: Call, settingFallback: String): String = {
     // TODO: should avoid nulls and checking for them
 
@@ -241,7 +248,7 @@ package object authentication {
       if (request.body.isInstanceOf[AnyContentAsJson]) {
         use[PlaySecPlugin].afterAuthJson(lu).withSession(newSession - SESSION_ORIGINAL_URL)
       } else {
-        Results.Redirect(getJumpUrl(request), REDIRECT_STATUS).withSession(newSession - SESSION_ORIGINAL_URL)
+        Results.Redirect(use[PlaySecPlugin].afterAuth.url, REDIRECT_STATUS).withSession(newSession - SESSION_ORIGINAL_URL)
       }
     }
   }
@@ -294,7 +301,7 @@ package object authentication {
     val o = getFromCache(session, key)
     o match {
       case Some(AuthUser) => Some(o.get.asInstanceOf[AuthUser])
-      case _ => None
+      case _              => None
     }
   }
 
@@ -333,6 +340,7 @@ package object authentication {
     session + (SESSION_ID_KEY, cacheKey._2)
   }
 
+  @deprecated("Use data from PlaySecPlugin.", "0.0.2")
   private def getJumpUrl[A](request: Request[A]): String = {
     getOriginalUrl(request).getOrElse {
       getUrl(
@@ -367,11 +375,10 @@ package object authentication {
            Results.Redirect(url, REDIRECT_STATUS).withSession(session)
          case LoginSignupResult(_, Some(url), _, _) =>
            Results.Redirect(url, REDIRECT_STATUS)
-         case LoginSignupResult(_, _, Some(authUser), _) => {
+         case LoginSignupResult(_, _, Some(authUser), _) =>
            // TODO blocking
            import scala.concurrent.duration._
            Await.result(processUser(request, auth.authUser.get), 10.second)
-         }
        }
      }
   }
@@ -391,23 +398,23 @@ package object authentication {
     // --> Link
 
     var oldUser = getUser(request.session)
-    val isLoggggedIn = isLoggedIn(request.session)
+    val loggedIn = isLoggedIn(request.session)
     val b = for {
-      oldIdentity <- if (isLoggggedIn) getUserService.getByAuthUserIdentity(oldUser.get) else Future.successful(None)
+      oldIdentity <- if (loggedIn) getUserService.getByAuthUserIdentity(oldUser.get) else Future.successful(None)
       loginIdentity <- getUserService.getByAuthUserIdentity(newUser)
     } yield {
       // TODO: could never fall into this if :(
-      if (isLoggggedIn && oldIdentity == None) {
+      if (loggedIn && oldIdentity == None) {
         Logger.info("User is logged in but identity is not found. " +
             "Probably session has expired. Will log out.")
         oldUser = None
         logout(request.session)
       }
 
-      val isLinked = loginIdentity != None
+      val linked = loginIdentity != None
 
-      Logger.info(s"IsLinked: $isLinked, isLoggggedIn: $isLoggggedIn")
-      val loginUser: Future[AuthUser] = (isLinked, isLoggggedIn) match {
+      Logger.info(s"IsLinked: $linked, isLoggggedIn: $loggedIn")
+      val loginUser: Future[AuthUser] = (linked, loggedIn) match {
         case (true, false) => {
           Logger.info("Performing login.")
           Future.successful(newUser)

@@ -35,37 +35,39 @@ abstract case class AuthProvider(app: play.api.Application) extends Plugin {
     if (settings.size > 0) {
       providerConfigOption match {
         case None =>
-          throw new RuntimeException(s"No settings for provider '$getKey' available at all!")
+          throw new RuntimeException(s"No settings for provider '$key' available at all!")
         case Some(c) =>
           for (key <- settings) {
             val setting = c.getString(key)
             if (setting == None) {
-              throw new RuntimeException(s"Provider '$getKey' missing needed setting '$key'.")
+              throw new RuntimeException(s"Provider '$key' missing needed setting '$key'.")
             }
           }
       }
     }
-    register(getKey, this)
+    register(key, this)
   }
 
 
   override def onStop() {
-    unregister(getKey)
+    unregister(key)
   }
 
-  def getUrl: String = use[PlaySecPlugin].auth(getKey).url
+  // TODO is it used
+  def getUrl: String = use[PlaySecPlugin].auth(key).url
 
+  // TODO is it used
   def getAbsoluteUrl(request: Request[AnyContent]): String = {
     use[PlaySecPlugin]
-        .auth(getKey)
+        .auth(key)
         // TODO: determine whether secure or not in runtime
         .absoluteURL(secure = false)(request)
   }
 
-  def getKey: String
+  val key: String
 
   protected def providerConfigOption: Option[Configuration] =
-    authentication.getConfiguration.flatMap(_.getConfig(getKey))
+    authentication.getConfiguration.flatMap(_.getConfig(key))
 
   protected def providerConfig: Configuration =
     providerConfigOption.get
@@ -90,7 +92,7 @@ abstract case class AuthProvider(app: play.api.Application) extends Plugin {
   protected def requiredSettings: List[String]
 
   def getSessionAuthUser(id: String, expires: Long): AuthUser =
-    new SessionAuthUser(id, getKey, expires)
+    new SessionAuthUser(id, key, expires)
 
   // TODO what is it for?
   val isExternal: Boolean

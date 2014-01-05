@@ -38,15 +38,15 @@ abstract class UsernamePasswordAuthProvider[V, UL <: UsernamePasswordAuthUser,
   protected val mailService: MailService
 
   override protected def requiredSettings = List(
-    s"$SETTING_KEY_MAIL.$SETTING_KEY_MAIL_DELAY",
-    s"$SETTING_KEY_MAIL.$SETTING_KEY_MAIL_FROM.$SETTING_KEY_MAIL_FROM_EMAIL"
+    s"$CFG_MAIL.$CFG_MAIL_DELAY",
+    s"$CFG_MAIL.$CFG_MAIL_FROM.$CFG_MAIL_FROM_EMAIL"
   )
 
   override def onStart() {
     super.onStart()
   }
 
-  override def getKey = UsernamePasswordAuthProvider.PROVIDER_KEY
+  override val key = UsernamePasswordAuthProvider.PROVIDER_KEY
 
   override def authenticate[A](request: Request[A], payload: Option[Case.Value]) =
     payload match {
@@ -56,7 +56,6 @@ abstract class UsernamePasswordAuthProvider[V, UL <: UsernamePasswordAuthUser,
       case _ =>
         Future.successful(new LoginSignupResult(com.typesafe.plugin.use[PlaySecPlugin].login.url))
     }
-
 
   private def processRecover[A](request: Request[A]): Future[LoginSignupResult] = {
     val login: R = getRecover(request)
@@ -205,10 +204,10 @@ abstract class UsernamePasswordAuthProvider[V, UL <: UsernamePasswordAuthUser,
 
 object UsernamePasswordAuthProvider {
   val PROVIDER_KEY = "email"
-  val SETTING_KEY_MAIL = "mail"
-  val SETTING_KEY_MAIL_FROM_EMAIL = "email"
-  val SETTING_KEY_MAIL_DELAY = "delay"
-  val SETTING_KEY_MAIL_FROM = "from"
+  val CFG_MAIL = "mail"
+  val CFG_MAIL_FROM_EMAIL = "email"
+  val CFG_MAIL_DELAY = "delay"
+  val CFG_MAIL_FROM = "from"
 
   def handleLogin[A](request: Request[A]): Future[SimpleResult] =
     atn.handleAuthentication(PROVIDER_KEY, request, Some(Case.LOGIN))

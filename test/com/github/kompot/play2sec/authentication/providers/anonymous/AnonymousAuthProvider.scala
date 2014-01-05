@@ -15,18 +15,17 @@ import ExecutionContext.Implicits.global
 import mock.KvStore
 
 class AnonymousAuthProvider(implicit app: play.api.Application) extends AuthProvider(app) {
-  def getKey = "anonymous"
+  override val key = "anonymous"
 
   def authenticate[A](request: Request[A], payload: Option[Case.Value]) = {
     payload match {
-      case Case.SIGNUP => {
+      case Case.SIGNUP =>
         val user = new AnonymousAuthUser(KvStore.generateId)
         for {
           u <- authentication.getUserService.save(user)
         } yield {
           new LoginSignupResult(user)
         }
-      }
       case _ => Future.successful(new LoginSignupResult(com.typesafe.plugin.use[PlaySecPlugin].login.url))
     }
   }

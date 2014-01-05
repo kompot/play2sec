@@ -33,7 +33,7 @@ class GoogleAuthProvider(app: Application)
 
   val USER_INFO_URL_SETTING_KEY = "userInfoUrl"
 
-  override def getKey = GoogleAuthProvider.PROVIDER_KEY
+  override val key = GoogleAuthProvider.PROVIDER_KEY
 
   protected override def transform(info: Future[GoogleAuthInfo], state: String): GoogleAuthUser = {
     val futureUser = for {

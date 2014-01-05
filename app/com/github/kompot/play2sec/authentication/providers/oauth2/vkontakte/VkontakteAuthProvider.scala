@@ -33,7 +33,7 @@ class VkontakteAuthProvider(app: Application)
 
   val USER_INFO_URL_SETTING_KEY = "userInfoUrl"
 
-  override def getKey = VkontakteAuthProvider.PROVIDER_KEY
+  override val key = VkontakteAuthProvider.PROVIDER_KEY
 
   protected override def transform(info: Future[VkontakteAuthInfo], state: String): VkontakteAuthUser = {
     val futureUser = for {

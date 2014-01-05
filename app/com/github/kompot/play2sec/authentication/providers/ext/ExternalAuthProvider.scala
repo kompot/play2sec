@@ -34,7 +34,7 @@ abstract class ExternalAuthProvider(app: play.api.Application) extends AuthProvi
   protected def getRedirectUrl[A](request: Request[A]): String = {
     val overrideHost = providerConfig.getString(SettingKeys.REDIRECT_URI_HOST)
     val isHttps = providerConfig.getBoolean(SettingKeys.REDIRECT_URI_SECURE).getOrElse(false)
-    val c = com.typesafe.plugin.use[PlaySecPlugin].auth(getKey)
+    val c = com.typesafe.plugin.use[PlaySecPlugin].auth(key)
     overrideHost match {
       case Some(oh) => "http" + (if (isHttps) "s" else "") + "://" + oh + c.url
       case _        => c.absoluteURL(isHttps)(request)

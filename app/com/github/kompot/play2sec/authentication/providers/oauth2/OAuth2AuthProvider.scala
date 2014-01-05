@@ -116,7 +116,7 @@ abstract class OAuth2AuthProvider[U <: BasicOAuth2AuthUser, I <: OAuth2AuthInfo]
     (error, code, state) match {
       case (Some(e), _, _) => {
         if (error.equals(Constants.ACCESS_DENIED)) {
-          throw new AccessDeniedException(getKey)
+          throw new AccessDeniedException(key)
         } else if (error.equals(Constants.REDIRECT_URI_MISMATCH)) {
           Logger.error("You must set the redirect URI for your provider to " +
               "whatever you defined in your routes file. For " +

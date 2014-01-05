@@ -37,9 +37,9 @@ class MyUsernamePasswordAuthProvider(app: play.Application)
 
   override protected def requiredSettings = {
     super.requiredSettings ++ List(
-      MyUsernamePasswordAuthProvider.SETTING_KEY_VERIFICATION_LINK_SECURE,
-      MyUsernamePasswordAuthProvider.SETTING_KEY_PASSWORD_RESET_LINK_SECURE,
-      MyUsernamePasswordAuthProvider.SETTING_KEY_LINK_LOGIN_AFTER_PASSWORD_RESET
+      MyUsernamePasswordAuthProvider.CFG_VERIFICATION_LINK_SECURE,
+      MyUsernamePasswordAuthProvider.CFG_PASSWORD_RESET_LINK_SECURE,
+      MyUsernamePasswordAuthProvider.CFG_LINK_LOGIN_AFTER_PASSWORD_RESET
     )
   }
 
@@ -59,19 +59,19 @@ class MyUsernamePasswordAuthProvider(app: play.Application)
     for {
       u <- userService.getByAuthUserIdentity(authUser)
     } yield {
-      if (!u.isDefined) {
-        LoginResult.NOT_FOUND
-      } else {
-        if (!u.get.emailValidated) {
-          LoginResult.USER_UNVERIFIED
-        } else {
-          val goodPassword = u.get.remoteUsers.exists(_.provider == getKey &&
-              authUser.checkPassword(u.get.password, authUser.clearPassword))
-          if (goodPassword)
-            LoginResult.USER_LOGGED_IN
-          else
-            LoginResult.WRONG_PASSWORD
-        }
+      u match {
+        case None => LoginResult.NOT_FOUND
+        case Some(user) =>
+          if (!user.emailValidated) {
+            LoginResult.USER_UNVERIFIED
+          } else {
+            val goodPassword = user.remoteUsers.exists(_.provider == key &&
+                authUser.checkPassword(user.password, authUser.clearPassword))
+            if (goodPassword)
+              LoginResult.USER_LOGGED_IN
+            else
+              LoginResult.WRONG_PASSWORD
+          }
       }
     }
   }
@@ -79,21 +79,23 @@ class MyUsernamePasswordAuthProvider(app: play.Application)
   protected def signupUser[A](user: MyUsernamePasswordAuthUser, request: Request[A]): Future[SignupResult.Value] = {
     for {
       u <- userService.getByAuthUserIdentity(user)
+      // TODO not used
       saved <- if (!u.isDefined) authentication.getUserService.save(user) else Future.successful(None)
     } yield {
-      if (u.isDefined) {
-        if (u.get.emailValidated) {
-          // This user exists, has its email validated and is active
-          SignupResult.USER_EXISTS
-        } else {
-          // this user exists, is active but has not yet validated its
-          // email
-          SignupResult.USER_EXISTS_UNVERIFIED
-        }
-      } else {
-        // Usually the email should be verified before allowing login, however
-        // if you return SignupResult.USER_CREATED then the user gets logged in directly
-        SignupResult.USER_CREATED_UNVERIFIED
+      u match {
+        case None =>
+          // Usually the email should be verified before allowing login, however
+          // if you return SignupResult.USER_CREATED then the user gets logged in directly
+          SignupResult.USER_CREATED_UNVERIFIED
+        case Some(us) =>
+          if (us.emailValidated) {
+            // This user exists, has its email validated and is active
+            SignupResult.USER_EXISTS
+          } else {
+            // this user exists, is active but has not yet validated its
+            // email
+            SignupResult.USER_EXISTS_UNVERIFIED
+          }
       }
     }
   }
@@ -157,9 +159,9 @@ class MyUsernamePasswordAuthProvider(app: play.Application)
 }
 
 object MyUsernamePasswordAuthProvider {
-  val SETTING_KEY_VERIFICATION_LINK_SECURE = UsernamePasswordAuthProvider.SETTING_KEY_MAIL + "." + "verificationLink.secure"
-  val SETTING_KEY_PASSWORD_RESET_LINK_SECURE = UsernamePasswordAuthProvider.SETTING_KEY_MAIL + "." + "passwordResetLink.secure"
-  val SETTING_KEY_LINK_LOGIN_AFTER_PASSWORD_RESET = "loginAfterPasswordReset"
+  val CFG_VERIFICATION_LINK_SECURE = UsernamePasswordAuthProvider.CFG_MAIL + "." + "verificationLink.secure"
+  val CFG_PASSWORD_RESET_LINK_SECURE = UsernamePasswordAuthProvider.CFG_MAIL + "." + "passwordResetLink.secure"
+  val CFG_LINK_LOGIN_AFTER_PASSWORD_RESET = "loginAfterPasswordReset"
   // TODO: used?
 //  val getProvider = a.getProvider(UsernamePasswordAuthProvider.PROVIDER_KEY).get.asInstanceOf[MyUsernamePasswordAuthProvider]
 }

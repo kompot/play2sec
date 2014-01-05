@@ -25,6 +25,8 @@ import com.github.kompot.play2sec.authentication.user.AuthUser
 trait PlaySecPlugin extends Plugin {
   def afterAuth: Call
 
+  def afterAuthJson(loginUser: AuthUser): SimpleResult
+
   def askMerge: Call
 
   def askLink: Call
@@ -39,6 +41,4 @@ trait PlaySecPlugin extends Plugin {
   def onException(e: AuthException): Call
 
   def userService: UserService
-
-  def afterAuthJson(loginUser: AuthUser): SimpleResult
 }

@@ -5,8 +5,10 @@ import com.github.kompot.play2sec.authentication.providers.password
 .UsernamePasswordAuthProvider
 import com.github.kompot.play2sec.authentication.user.AuthUserIdentity
 import java.util.concurrent.TimeUnit
+import mock.MailServer
 import play.api.test.{WithBrowser, PlaySpecification}
 import scala.concurrent.duration._
+import util.StringUtils
 
 class LoginPasswordTest extends PlaySpecification {
   sequential
@@ -64,6 +66,20 @@ class LoginPasswordTest extends PlaySpecification {
 
     browser.await().atMost(1000)
     browser.url.contains("/auth/user-unverified") mustEqual true
+
+    val link = StringUtils.getFirstLinkByContent(
+      MailServer.boxes("kompotik@gmail.com").findByContent("verify-email")(0).body, "verify-email").get
+    val emailVerificationLink = StringUtils.getRequestPathFromString(link)
+
+    browser.goTo(emailVerificationLink)
+
+    browser.goTo("/auth/login")
+    browser.fill("input#email").`with`("kompotik@gmail.com")
+    browser.$("#password").text(password)
+    browser.click("input[type = 'submit']")
+
+    browser.await().atMost(1000)
+    browser.url.contains("/after-auth") mustEqual true
   }
 
   step {

@@ -33,7 +33,7 @@ AccessTokenException}
 import play.api.libs.json.JsUndefined
 
 class FacebookAuthProvider(app: play.api.Application) extends OAuth2AuthProvider[FacebookAuthUser, FacebookAuthInfo](app) {
-  override def getKey = FacebookAuthProvider.PROVIDER_KEY
+  override val key = FacebookAuthProvider.PROVIDER_KEY
 
   protected override def transform(info: Future[FacebookAuthInfo], state: String): FacebookAuthUser = {
     val futureUser = for {

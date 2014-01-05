@@ -12,7 +12,7 @@ import play.api.mvc.{Results, Call}
 
 class DefaultPlaySecPlugin(app: play.api.Application) extends PlaySecPlugin
     with JsonWebConversions {
-  def afterAuth = new Call("GET", "/")
+  def afterAuth = new Call("GET", "/after-auth")
 
   def askMerge = new Call("GET", "/auth/ask-merge")
 
