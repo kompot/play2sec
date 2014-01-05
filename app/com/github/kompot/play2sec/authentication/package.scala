@@ -244,12 +244,7 @@ package object authentication {
       lu <- loginUser
     } yield {
       val newSession = storeUser(request, lu)
-      // TODO: ajax call, is there a good way to check whether it was ajax request
-      if (request.body.isInstanceOf[AnyContentAsJson]) {
-        use[PlaySecPlugin].afterAuthJson(lu).withSession(newSession - SESSION_ORIGINAL_URL)
-      } else {
-        Results.Redirect(use[PlaySecPlugin].afterAuth.url, REDIRECT_STATUS).withSession(newSession - SESSION_ORIGINAL_URL)
-      }
+      use[PlaySecPlugin].afterAuth(request.body).withSession(newSession - SESSION_ORIGINAL_URL)
     }
   }
 
@@ -338,16 +333,6 @@ package object authentication {
     val cacheKey = getCacheKey(session, key)
     play.api.cache.Cache.set(cacheKey._1, o)
     session + (SESSION_ID_KEY, cacheKey._2)
-  }
-
-  @deprecated("Use data from PlaySecPlugin.", "0.0.2")
-  private def getJumpUrl[A](request: Request[A]): String = {
-    getOriginalUrl(request).getOrElse {
-      getUrl(
-        use[PlaySecPlugin].afterAuth,
-        CFG_AFTER_AUTH_FALLBACK
-      )
-    }
   }
 
   @throws(scala.Predef.classOf[AuthException])

@@ -20,12 +20,15 @@ import play.api.Plugin
 import play.api.mvc.{SimpleResult, Call}
 import com.github.kompot.play2sec.authentication.exceptions.AuthException
 import com.github.kompot.play2sec.authentication.service.UserService
-import com.github.kompot.play2sec.authentication.user.AuthUser
 
+// TODO should be no `Call` in return; only SimpleResults based on request type
 trait PlaySecPlugin extends Plugin {
-  def afterAuth: Call
-
-  def afterAuthJson(loginUser: AuthUser): SimpleResult
+  /**
+   * What to do when user is authenticated.
+   * `A` type is play.api.mvc.AnyContent
+   * TODO: how to express that via type system
+   */
+  def afterAuth[A](a: A): SimpleResult
 
   def askMerge: Call
 
