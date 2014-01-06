@@ -78,7 +78,7 @@ package object authentication {
 
     val withExpiration = u.expires != AuthUser.NO_EXPIRATION
 
-    Logger.info("Will be storing user " + u)
+    Logger.info(s"Will be storing user $u with expiration = $withExpiration, ${authUser.expires}")
     val session = request.session +
         (SESSION_USER_KEY, u.id) +
         (SESSION_PROVIDER_KEY, u.provider)
@@ -93,7 +93,7 @@ package object authentication {
    * @param session
    * @return
    */
-  private def isLoggedIn(session: Session): Boolean = {
+  def isLoggedIn(session: Session): Boolean = {
     val idAndProviderAreNotEmpty = session.get(SESSION_USER_KEY).isDefined && session.get(SESSION_PROVIDER_KEY).isDefined
     val providerIsRegistered = com.github.kompot.play2sec.authentication.providers.hasProvider(session.get(SESSION_PROVIDER_KEY).getOrElse(""))
 
@@ -226,7 +226,7 @@ package object authentication {
   def getLinkUser(session: Session): Option[AuthUser] =
     getUserFromCache(session, LINK_USER_KEY)
 
-  def loginAndRedirect[A](request: Request[A], loginUser: Future[AuthUser]): Future[SimpleResult] = {
+  private def loginAndRedirect[A](request: Request[A], loginUser: Future[AuthUser]): Future[SimpleResult] = {
     for {
       lu <- loginUser
     } yield {
@@ -239,10 +239,9 @@ package object authentication {
     val mergeUser = getMergeUser(request.session)
 
     mergeUser match {
-      case None => {
+      case None =>
         Logger.warn("User to be merged not found.")
         return Future.successful(Results.Forbidden("User to be merged not found."))
-      }
       case Some(_) =>
     }
 
@@ -335,7 +334,7 @@ package object authentication {
   }
 
   def handleAuthentication[A](provider: String, request: Request[A],
-      payload: Option[Case.Value] = None): Future[SimpleResult] = {
+      payload: Option[Case] = None): Future[SimpleResult] = {
      for {
        // TODO direct get
        auth <- getProvider(provider).get.authenticate(request, payload)

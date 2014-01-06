@@ -83,7 +83,7 @@ abstract case class AuthProvider(app: play.api.Application) extends Plugin {
    * @throws AuthException
    */
   @throws(classOf[AuthException])
-  def authenticate[A](request: Request[A], payload: Option[Case.Value]): Future[LoginSignupResult]
+  def authenticate[A](request: Request[A], payload: Option[Case]): Future[LoginSignupResult]
 
   /**
    * Mandatory settings that must be supplied in order for auth provider to work.

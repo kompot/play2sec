@@ -48,7 +48,7 @@ abstract class OAuth1AuthProvider[U <: BasicOAuth1AuthUser, I <: OAuth1AuthInfo]
     OAuth1AuthProvider.SettingKeys.CONSUMER_SECRET
   )
 
-  override def authenticate[A](request: Request[A], payload: Option[Case.Value]) = {
+  override def authenticate[A](request: Request[A], payload: Option[Case]) = {
     import OAuth1AuthProvider._
 
     val uri = request.uri

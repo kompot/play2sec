@@ -101,7 +101,7 @@ abstract class OAuth2AuthProvider[U <: BasicOAuth2AuthUser, I <: OAuth2AuthInfo]
     )
   }
 
-  override def authenticate[A](request: Request[A], payload: Option[Case.Value]) = {
+  override def authenticate[A](request: Request[A], payload: Option[Case]) = {
     import OAuth2AuthProvider._
 
     Logger.info(s"Returned with URL ${request.uri}")
@@ -115,9 +115,9 @@ abstract class OAuth2AuthProvider[U <: BasicOAuth2AuthUser, I <: OAuth2AuthInfo]
 
     (error, code, state) match {
       case (Some(e), _, _) => {
-        if (error.equals(Constants.ACCESS_DENIED)) {
+        if (e == Constants.ACCESS_DENIED) {
           throw new AccessDeniedException(key)
-        } else if (error.equals(Constants.REDIRECT_URI_MISMATCH)) {
+        } else if (e == Constants.REDIRECT_URI_MISMATCH) {
           Logger.error("You must set the redirect URI for your provider to " +
               "whatever you defined in your routes file. For " +
               "this provider it is: '" + getRedirectUrl(request) + "'")

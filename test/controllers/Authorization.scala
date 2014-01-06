@@ -7,8 +7,8 @@ package controllers
 import play.api.mvc._
 import com.github.kompot.play2sec.authorization.scala.DeadboltActions
 import play.api.libs.json._
-import com.github.kompot.play2sec.authentication.providers.password.{Case,
-UsernamePasswordAuthProvider}
+import com.github.kompot.play2sec.authentication.providers.password.{SIGNUP,
+Case, UsernamePasswordAuthProvider}
 import com.github.kompot.play2sec.authentication
 import com.github.kompot.play2sec.authorization.handler.{UserEditUpdate,
 CustomDeadboltHandler}
@@ -34,6 +34,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import play.api.Logger
 import scala.concurrent.Future
 
+@deprecated("Move all stuff to FakeApp from here", "0.0.2")
 object Authorization extends Controller with DeadboltActions with JsonWebConversions {
   val userStore = Injector.userStore
   val tokenStore = Injector.tokenStore
@@ -91,6 +92,7 @@ object Authorization extends Controller with DeadboltActions with JsonWebConvers
 //    }
 //  }
 
+  // TODO move this into play2sec
   def createAnonymousAccount(returnTo: String) = SubjectNotPresent(new CustomDeadboltHandler()) {
     Action.async { implicit request =>
       if (request.session.get(SESSION_ORIGINAL_URL) == None) {
@@ -101,7 +103,7 @@ object Authorization extends Controller with DeadboltActions with JsonWebConvers
             .withSession(request.session + back)
         )
       } else {
-        handleAuthentication("anonymous", request, Some(Case.SIGNUP))
+        handleAuthentication("anonymous", request, Some(SIGNUP))
       }
     }
   }

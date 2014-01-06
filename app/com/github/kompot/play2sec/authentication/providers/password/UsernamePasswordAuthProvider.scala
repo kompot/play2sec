@@ -48,14 +48,20 @@ abstract class UsernamePasswordAuthProvider[V, UL <: UsernamePasswordAuthUser,
 
   override val key = UsernamePasswordAuthProvider.PROVIDER_KEY
 
-  override def authenticate[A](request: Request[A], payload: Option[Case.Value]) =
+  override def authenticate[A](request: Request[A], payload: Option[Case]) =
     payload match {
-      case Some(Case.SIGNUP)           => processSignup(request)
-      case Some(Case.LOGIN)            => processLogin(request)
-      case Some(Case.RECOVER_PASSWORD) => processRecover(request)
+      case Some(SIGNUP)                => processSignup(request)
+      case Some(LOGIN)                 => processLogin(request)
+      case Some(RECOVER_PASSWORD)      => processRecover(request)
+      case Some(VERIFIED_EMAIL(email)) => processVerifiedEmail(request, email)
       case _ =>
         Future.successful(new LoginSignupResult(com.typesafe.plugin.use[PlaySecPlugin].login.url))
     }
+
+  private def processVerifiedEmail[A](request: Request[A], email: String): Future[LoginSignupResult] = {
+    val authUser = buildLoginAuthUser(getVerifiedEmailTuple(email), request)
+    Future.successful(new LoginSignupResult(authUser))
+  }
 
   private def processRecover[A](request: Request[A]): Future[LoginSignupResult] = {
     val login: R = getRecover(request)
@@ -75,7 +81,7 @@ abstract class UsernamePasswordAuthProvider[V, UL <: UsernamePasswordAuthUser,
 
     val login: L = getLogin(request)
     val authUser: UL = buildLoginAuthUser(login, request)
-    Logger.warn("processLogin 1")
+    Logger.info("processLogin, authUser.expires = " + authUser.expires)
     for {
       r <- loginUser(authUser)
     } yield {
@@ -187,9 +193,11 @@ abstract class UsernamePasswordAuthProvider[V, UL <: UsernamePasswordAuthUser,
   protected def getLoginForm: Form[L]
   protected def getSignupForm: Form[S]
   protected def getResetPasswordForm: Form[R]
+  protected def getVerifiedEmailTuple(email: String): L
   protected def loginUser(authUser: UL): Future[LoginResult.Value]
   protected def signupUser[A](user: US, request: Request[A]): Future[SignupResult.Value]
   protected def userExists(authUser: UsernamePasswordAuthUser): Call
+  @deprecated("User single userExists", "0.0.2")
   protected def userExistsJson(authUser: UsernamePasswordAuthUser): SimpleResult
   protected def userUnverified(authUser: UsernamePasswordAuthUser): Call
   protected def userSignupUnverifiedJson(user: US): SimpleResult
@@ -210,20 +218,24 @@ object UsernamePasswordAuthProvider {
   val CFG_MAIL_FROM = "from"
 
   def handleLogin[A](request: Request[A]): Future[SimpleResult] =
-    atn.handleAuthentication(PROVIDER_KEY, request, Some(Case.LOGIN))
+    atn.handleAuthentication(PROVIDER_KEY, request, Some(LOGIN))
 
   def handleSignup[A](request: Request[A]): Future[SimpleResult] =
-    atn.handleAuthentication(PROVIDER_KEY, request, Some(Case.SIGNUP))
+    atn.handleAuthentication(PROVIDER_KEY, request, Some(SIGNUP))
 
   def handleRecoverPassword[A](request: Request[A]): Future[SimpleResult] =
-    atn.handleAuthentication(PROVIDER_KEY, request, Some(Case.RECOVER_PASSWORD))
+    atn.handleAuthentication(PROVIDER_KEY, request, Some(RECOVER_PASSWORD))
+
+  def handleVerifiedEmailLogin[A](request: Request[A], email: String): Future[SimpleResult] =
+    atn.handleAuthentication(PROVIDER_KEY, request, Some(VERIFIED_EMAIL(email)))
 }
 
-object Case extends Enumeration {
-  val SIGNUP = Value
-  val LOGIN = Value
-  val RECOVER_PASSWORD = Value
-}
+sealed trait Case
+
+case object SIGNUP extends Case
+case object LOGIN extends Case
+case object RECOVER_PASSWORD extends Case
+case class VERIFIED_EMAIL(email: String) extends Case
 
 object SignupResult extends Enumeration {
   val USER_EXISTS = Value

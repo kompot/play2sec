@@ -77,9 +77,10 @@ class UserStore extends KvStore with UserService {
     }
   }
 
+  // TODO: should make this a part of UserService interface?
   def verifyEmail(userId: String, email: String): Future[Boolean] = {
-    val user = store.find(_._1 == userId).map(_._2)
-    val unconfirmedEmailUser = user.flatMap(_.remoteUsers.find(ru =>
+    val user = store.find(u => u._1 == userId && !u._2.isBlocked).map(_._2)
+    val unconfirmedEmailUser = user.flatMap(u => u.remoteUsers.find(ru =>
       ru.provider == UsernamePasswordAuthProvider.PROVIDER_KEY &&
       ru.id == email &&
       !ru.isConfirmed))

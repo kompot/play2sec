@@ -1,7 +1,7 @@
 import bootstrap.Global.Injector
 import com.github.kompot.play2sec.authentication
-import com.github.kompot.play2sec.authentication.providers.password
-.UsernamePasswordAuthProvider
+import com.github.kompot.play2sec.authentication.providers.password.{Case,
+UsernamePasswordAuthProvider}
 import com.github.kompot.play2sec.authentication.user.AuthUser
 import controllers.{JsonWebConversions, JsResponseError, Authorization}
 import model.Await
@@ -15,7 +15,12 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class FakeApp extends FakeApplication(
   withRoutes = FakeApp.routes,
   additionalConfiguration = FakeApp.additionalConfiguration,
-  additionalPlugins = FakeApp.additionalPlugins)
+  additionalPlugins = FakeApp.additionalPlugins ++ FakeApp.normalUser)
+
+class FakeAppShortLivingUser extends FakeApplication(
+  withRoutes = FakeApp.routes,
+  additionalConfiguration = FakeApp.additionalConfiguration,
+  additionalPlugins = FakeApp.additionalPlugins ++ FakeApp.shortLivingUser)
 
 object FakeApp extends JsonWebConversions {
   val routes: PartialFunction[(String, String), Handler] = {
@@ -26,17 +31,17 @@ object FakeApp extends JsonWebConversions {
     case ("POST", "/auth/signup") =>
       Action.async { implicit request =>
         Authorization.userSignUpForm.bindFromRequest.fold(
-        { errors => Future.successful(Results.BadRequest[JsValue](
-          JsResponseError("Email signup failed.", Some(errors)))) },
-        { case _ => UsernamePasswordAuthProvider.handleSignup(request) }
+          { errors => Future.successful(Results.BadRequest[JsValue](
+            JsResponseError("Email signup failed.", Some(errors)))) },
+          { case _ => UsernamePasswordAuthProvider.handleSignup(request) }
         )
       }
     case ("POST", "/auth/login") =>
       Action.async { implicit request =>
         Authorization.userLoginForm.bindFromRequest.fold(
-        { errors => Future.successful(Results.BadRequest[JsValue](
-          JsResponseError("Email login failed.", Some(errors)))) },
-        { case _ => UsernamePasswordAuthProvider.handleLogin(request) }
+          { errors => Future.successful(Results.BadRequest[JsValue](
+            JsResponseError("Email login failed.", Some(errors)))) },
+          { case _ => UsernamePasswordAuthProvider.handleLogin(request) }
         )
       }
     case ("GET", "/auth/signup") | ("GET", "/auth/login") =>
@@ -56,23 +61,11 @@ object FakeApp extends JsonWebConversions {
           maybeToken <- Injector.tokenStore.getValidTokenBySecurityKey(request.getQueryString("token").get)
           email = maybeToken.get.data.\("email").as[String]
           res <- Injector.userStore.verifyEmail(maybeToken.get.userId, email)
-          maybeUser <- Injector.userStore.get(maybeToken.get.userId)
         } yield {
-          if (maybeUser.isDefined) {
-            if (maybeUser.get.remoteUsers.exists{ r =>
-              r.provider == UsernamePasswordAuthProvider.PROVIDER_KEY &&
-                  r.id == email && r.isConfirmed
-            }) {
-              val identity = new AuthUser {
-                def id = email
-                def provider = UsernamePasswordAuthProvider.PROVIDER_KEY
-              }
-              Await(authentication.loginAndRedirect(request, Future.successful(identity)))
-            } else {
-              Results.InternalServerError("Email was not verified.")
-            }
+          if (res) {
+            Await(UsernamePasswordAuthProvider.handleVerifiedEmailLogin(request, email))
           } else {
-            Results.InternalServerError("Email was not verified.")
+            Results.BadRequest("Unable to process request.")
           }
         }
       }
@@ -121,10 +114,17 @@ object FakeApp extends JsonWebConversions {
   val additionalPlugins = Seq(
     "mock.FixedEhCachePlugin",
     "com.typesafe.plugin.CommonsMailerPlugin",
-    "com.github.kompot.play2sec.authentication.providers.MyUsernamePasswordAuthProvider",
     "com.github.kompot.play2sec.authentication.providers.oauth1.twitter.TwitterAuthProvider",
     "com.github.kompot.play2sec.authentication.providers.oauth2.facebook.FacebookAuthProvider",
     "com.github.kompot.play2sec.authentication.providers.oauth2.google.GoogleAuthProvider",
     "com.github.kompot.play2sec.authentication.DefaultPlaySecPlugin"
+  )
+
+  val normalUser = Seq(
+    "com.github.kompot.play2sec.authentication.providers.MyUsernamePasswordAuthProvider"
+  )
+
+  val shortLivingUser = Seq(
+    "com.github.kompot.play2sec.authentication.providers.MyUsernamePasswordAuthProviderShortLiving"
   )
 }

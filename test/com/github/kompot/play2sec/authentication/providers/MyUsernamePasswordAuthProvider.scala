@@ -43,17 +43,22 @@ class MyUsernamePasswordAuthProvider(app: play.Application)
     )
   }
 
-  protected def buildLoginAuthUser[A](login: (String, String), request: Request[A]) = new MyLoginUsernamePasswordAuthUser(login._2, login._1)
+  protected def buildLoginAuthUser[A](login: (String, String), request: Request[A]) =
+    new MyLoginUsernamePasswordAuthUser(login._2, login._1)
 
-  protected def buildSignupAuthUser[A](signup: (String, String), request: Request[A]) = new MyUsernamePasswordAuthUser(signup._2, signup._1)
+  protected def buildSignupAuthUser[A](signup: (String, String), request: Request[A]) =
+    new MyUsernamePasswordAuthUser(signup._2, signup._1)
 
-  protected def buildResetPasswordAuthUser[A](resetPassword: String, request: Request[A]) = new MyUsernamePasswordAuthUser("", resetPassword)
+  protected def buildResetPasswordAuthUser[A](resetPassword: String, request: Request[A]) =
+    new MyUsernamePasswordAuthUser("", resetPassword)
 
   protected def getLoginForm = Authorization.loginForm
 
   protected def getSignupForm = Authorization.signupForm
 
   protected def getResetPasswordForm = Authorization.resetPasswordForm
+
+  protected def getVerifiedEmailTuple(email: String) = ("", email)
 
   protected def loginUser(authUser: MyLoginUsernamePasswordAuthUser): Future[LoginResult.Value] = {
     for {
