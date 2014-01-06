@@ -59,10 +59,8 @@ package object authentication {
 
   private val REDIRECT_STATUS = 303
 
-  // TODO null? what is it for?
-  private val MERGE_USER_KEY: String = null
-  // TODO null what is it for?
-  private val LINK_USER_KEY: String = null
+  private val MERGE_USER_KEY = "merge-user"
+  private val LINK_USER_KEY = "link-user"
 
   def getConfiguration: Option[Configuration] = application.configuration.getConfig(CFG_ROOT)
 
@@ -196,10 +194,9 @@ package object authentication {
     val linkUser = getLinkUser(request.session)
 
     linkUser match {
-      case None => {
+      case None =>
         Logger.warn("User to be linked not found.")
         return Future.successful(Results.Forbidden("User to be linked not found."))
-      }
       case Some(_) =>
     }
 
@@ -223,7 +220,7 @@ package object authentication {
     }
   }
 
-  def getLinkUser(session: Session): Option[AuthUser] =
+  private def getLinkUser(session: Session): Option[AuthUser] =
     getUserFromCache(session, LINK_USER_KEY)
 
   private def loginAndRedirect[A](request: Request[A], loginUser: Future[AuthUser]): Future[SimpleResult] = {
@@ -356,80 +353,86 @@ package object authentication {
 
   private def processUser[A](request: Request[A], newUser: AuthUser): Future[SimpleResult] = {
     Logger.info("User identity found.")
-    // We might want to do merging here:
-    // Adapted from:
-    // http://stackoverflow.com/questions/6666267/architecture-for-merging-multiple-user-accounts-together
-    // 1. The account is     linked to a local account and NO session cookie is present
-    // --> Login
-    // 2. The account is     linked to a local account and  a session cookie is present
-    // --> Merge
-    // 3. The account is NOT linked to a local account and NO session cookie is present
-    // --> Signup
-    // 4. The account is NOT linked to a local account and  a session cookie is present
-    // --> Link
-
     val oldUser = getUser(request.session)
     val loggedIn = isLoggedIn(request.session)
-    val b = for {
+    for {
       oldIdentity <-
         if (loggedIn) getUserService.getByAuthUserIdentity(oldUser.get)
         else Future.successful(None)
       loginIdentity <- getUserService.getByAuthUserIdentity(newUser)
+      chosenPath <- choosePath(loggedIn, oldIdentity, request, loginIdentity, newUser, oldUser)
     } yield {
-      // should fall here if user is in session but has been deleted from storage
-      if (loggedIn && oldIdentity == None) {
+      chosenPath
+    }
+  }
+
+  /**
+   * Adapted from:
+   * http://stackoverflow.com/questions/6666267/architecture-for-merging-multiple-user-accounts-together
+   * 1. The account is     linked to a local account and NO session cookie is present
+   * --> Login
+   * 2. The account is     linked to a local account and  a session cookie is present
+   * --> Merge
+   * 3. The account is NOT linked to a local account and NO session cookie is present
+   * --> Signup
+   * 4. The account is NOT linked to a local account and  a session cookie is present
+   * --> Link
+   * @param loggedIn
+   * @param oldIdentity
+   * @param request
+   * @param loginIdentity
+   * @param newUser
+   * @param oldUser
+   * @tparam A
+   * @return
+   */
+  private def choosePath[A](loggedIn: Boolean, oldIdentity: Option[UserService#UserClass],
+      request: Request[A], loginIdentity: Option[UserService#UserClass],
+      newUser: AuthUser, oldUser: Option[AuthUser]): Future[SimpleResult] = {
+    val linked = loginIdentity != None
+    Logger.info(s"IsLinked: $linked, isLoggedIn: $loggedIn")
+    (linked, loggedIn, oldIdentity) match {
+      case (_, true, None) =>
+        // should fall here if user is in session but has been deleted from storage
         Logger.info("User is logged in but identity is not found. " +
             "Probably session has expired. Will log out.")
-        return Future.successful(logout(request))
-      }
-
-      val linked = loginIdentity != None
-
-      Logger.info(s"IsLinked: $linked, isLoggedIn: $loggedIn")
-      val loginUser: Future[AuthUser] = (linked, loggedIn) match {
-        case (true, false) =>
-          Logger.info("Performing login.")
-          Future.successful(newUser)
-        case (true, true) =>
-          Logger.info("Performing merge.")
-          if (isAccountMergeEnabled && !loginIdentity.equals(oldIdentity)) {
-            if (isAccountAutoMerge) {
-              Logger.info("Auto merge is active.")
-              getUserService.merge(newUser, oldUser)
-            } else {
-              Logger.info("Auto merge is not active.")
-              storeMergeUser(newUser, request.session)
-              return Future.successful(Results.Redirect(use[PlaySecPlugin].askMerge))
-            }
+        Future.successful(logout(request))
+      case (true, false, _) =>
+        Logger.info("Performing login.")
+        loginAndRedirect(request, Future.successful(newUser))
+      case (true, true, _) =>
+        Logger.info("Performing merge.")
+        if (isAccountMergeEnabled && !loginIdentity.equals(oldIdentity)) {
+          if (isAccountAutoMerge) {
+            Logger.info("Auto merge is active.")
+            loginAndRedirect(request, getUserService.merge(newUser, oldUser))
           } else {
-            Logger.info("Doing nothing, auto merging is not enabled or " +
-                "already logged in with this user.")
-            // the currently logged in user and the new login belong
-            // to the same local user,
-            // or Account merge is disabled, so just change the log
-            // in to the new user
-            Future.successful(newUser)
+            Logger.info("Auto merge is not active.")
+            storeMergeUser(newUser, request.session)
+            Future.successful(Results.Redirect(use[PlaySecPlugin].askMerge))
           }
-        case (false, false) =>
-          Logger.info("Performing sign up.")
-          signupUser(newUser)
-        case (false, true) =>
-          if (isAccountAutoLink) {
-            Logger.info(s"Linking additional account.")
-            getUserService.link(oldUser, newUser)
-          } else {
-            Logger.info(
-              s"Will not link additional account. Auto linking is disabled.")
-            storeLinkUser(newUser, request.session)
-            return Future.successful(Results.Redirect(use[PlaySecPlugin].askLink))
-          }
-      }
-      loginAndRedirect(request, loginUser)
+        } else {
+          Logger.info("Doing nothing, auto merging is not enabled or " +
+              "already logged in with this user.")
+          // the currently logged in user and the new login belong
+          // to the same local user,
+          // or Account merge is disabled, so just change the log
+          // in to the new user
+          loginAndRedirect(request, Future.successful(newUser))
+        }
+      case (false, false, _) =>
+        Logger.info("Performing sign up.")
+        loginAndRedirect(request, signupUser(newUser))
+      case (false, true, _) =>
+        if (isAccountAutoLink) {
+          Logger.info(s"Linking additional account.")
+          loginAndRedirect(request, getUserService.link(oldUser, newUser))
+        } else {
+          Logger.info(
+            s"Will not link additional account. Auto linking is disabled.")
+          storeLinkUser(newUser, request.session)
+          Future.successful(Results.Redirect(use[PlaySecPlugin].askLink))
+        }
     }
-    // TODO mega trash with control flow
-    for {
-      b1 <- b
-      b2 <- b1
-    } yield b2
   }
 }
