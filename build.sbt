@@ -47,7 +47,11 @@ libraryDependencies ++= Seq(
   cache,
   "org.mindrot"              %  "jbcrypt"                   % "0.3m",
   "com.softwaremill.macwire" %% "core"                      % "0.4.1"  % "test",
-  "com.typesafe"             %% "play-plugins-mailer"       % "2.2.0"  % "test"
+  "com.typesafe"             %% "play-plugins-mailer"       % "2.2.0"  % "test",
+  "org.seleniumhq.selenium"  %  "selenium-support"          % "2.39.0" % "test",
+  "org.seleniumhq.selenium"  %  "selenium-remote-driver"    % "2.39.0" % "test",
+  "org.seleniumhq.selenium"  %  "selenium-htmlunit-driver"  % "2.39.0" % "test",
+  "org.seleniumhq.selenium"  %  "selenium-firefox-driver"   % "2.39.0" % "test"
 )
 
 play.Project.playScalaSettings ++ Seq(
