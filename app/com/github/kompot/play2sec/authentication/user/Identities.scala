@@ -18,7 +18,7 @@ package com.github.kompot.play2sec.authentication.user
 
 import java.util.Locale
 
-trait AuthUserIdentity {
+trait AuthUserIdentity extends Serializable {
   def id: String
   def provider: String
 
