@@ -5,6 +5,8 @@ import com.github.kompot.play2sec.authentication.providers.oauth2.facebook
 .FacebookAuthProvider
 import com.github.kompot.play2sec.authentication.providers.oauth2.google
 .GoogleAuthProvider
+import com.github.kompot.play2sec.authentication.providers.password
+.UsernamePasswordAuthProvider
 import com.github.kompot.play2sec.authentication.user.AuthUserIdentity
 import java.util.concurrent.TimeUnit
 import mock.MailServer
@@ -151,6 +153,67 @@ class MultipleBrowserSignupTest extends PlaySpecification {
       def id = googleUserId.get
     }))
     user2.get.remoteUsers.size mustEqual 4
+  }
+
+  step {
+    Injector.tokenStore.clearStore()
+    Injector.userStore.clearStore()
+  }
+
+  "There should be 2 separate accounts when user is short lived" in new WithBrowser(FIREFOX, new FakeAppShortLivingUser) {
+    val facebookLogin    = current.configuration.getString("test.facebook.login")
+    val facebookPassword = current.configuration.getString("test.facebook.password")
+    val facebookUserId   = current.configuration.getString("test.facebook.id")
+
+    assert(facebookLogin.isDefined && !facebookLogin.get.isEmpty,
+      "Key test.facebook.login is not defined in configuration.")
+    assert(facebookPassword.isDefined && !facebookPassword.get.isEmpty,
+      "Key test.facebook.password is not defined in configuration.")
+    assert(facebookUserId.isDefined && !facebookUserId.get.isEmpty,
+      "Key test.facebook.id is not defined in configuration.")
+
+    browser.goTo("/auth/signup")
+    browser.fill("input#email").`with`("kompotik@gmail.com")
+    browser.$("#password").text("123")
+    browser.click("input[type = 'submit']")
+
+    browser.await().atMost(1000)
+
+    val link = StringUtils.getFirstLinkByContent(
+      MailServer.boxes("kompotik@gmail.com").findByContent("verify-email")(0).body, "verify-email").get
+    val emailVerificationLink = StringUtils.getRequestPathFromString(link)
+
+    browser.goTo(emailVerificationLink)
+
+    // then signup via facebook
+    browser.goTo("/auth/external/facebook")
+    browser.waitUntil(10, TimeUnit.SECONDS) {
+      browser.url.contains("www.facebook.com/login")
+    }
+    if (browser.url.contains("www.facebook.com/login")) {
+      browser.fill("input#email").`with`(facebookLogin.get)
+      browser.fill("input#pass").`with`(facebookPassword.get)
+      browser.click("input[type = 'submit'][name = 'login']")
+    }
+
+    browser.waitUntil(10, TimeUnit.SECONDS) {
+      // wait until back to localhost
+      browser.url.startsWith("/")
+    }
+
+    val user = await(Injector.userStore.getByAuthUserIdentity(new AuthUserIdentity {
+      def provider = FacebookAuthProvider.PROVIDER_KEY
+      def id = facebookUserId.get
+    }))
+    user.get mustNotEqual None
+    user.get.remoteUsers.size mustEqual 1
+
+    val user1 = await(Injector.userStore.getByAuthUserIdentity(new AuthUserIdentity {
+      def provider = UsernamePasswordAuthProvider.PROVIDER_KEY
+      def id = "kompotik@gmail.com"
+    }))
+    user1.get mustNotEqual None
+    user1.get.remoteUsers.size mustEqual 1
   }
 
   step {
