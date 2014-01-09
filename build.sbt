@@ -10,6 +10,8 @@ publishMavenStyle := true
 
 scalaVersion := "2.10.3"
 
+incOptions := incOptions.value.withNameHashing(true)
+
 publishTo := {
   val nexus = "https://oss.sonatype.org/"
   if (version.value.trim.endsWith("SNAPSHOT"))
