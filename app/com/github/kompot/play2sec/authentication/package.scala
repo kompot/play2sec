@@ -189,30 +189,28 @@ package object authentication {
 //    case _ => throw new AuthException("Provider %s is not defined".format(providerKey))
 //  }
 
-  // TODO is it used?
-  def link[A](request: Request[A], link: Boolean): Future[SimpleResult] = {
-    val linkUser = getLinkUser(request.session)
-
-    linkUser match {
+  def link[A](request: Request[A], link: Boolean): Future[SimpleResult] =
+    getLinkUser(request.session) match {
       case None =>
         Logger.warn("User to be linked not found.")
-        return Future.successful(Results.Forbidden("User to be linked not found."))
-      case Some(_) =>
+        Future.successful(Results.Forbidden("User to be linked not found."))
+      case Some(user) =>
+        Logger.info("User to be linked is found.")
+        removeLinkUser(request.session)
+        loginAndRedirect(request, linkOrSignupUser(request, link, user))
     }
 
-    removeLinkUser(request.session)
-    loginAndRedirect(request, linkOrSignupUser(request, link, linkUser))
-  }
-
   private def linkOrSignupUser[A](request: Request[A], link: Boolean,
-      linkUser: Option[AuthUser]): Future[AuthUser] = {
+      linkUser: AuthUser): Future[AuthUser] = {
     if (link) {
       // User accepted link - add account to existing local user
-      getUserService.link(getUser(request.session), linkUser.get)
+      Logger.info("Will be linking.")
+      getUserService.link(getUser(request.session), linkUser)
     } else {
       // User declined link - create new user
+      Logger.info("Will not be linking.")
       try {
-        signupUser(linkUser.get)
+        signupUser(linkUser)
       } catch {
         case e: AuthException => throw e
 //          return Results.InternalServerError(e.getMessage)
@@ -220,8 +218,7 @@ package object authentication {
     }
   }
 
-  private def getLinkUser(session: Session): Option[AuthUser] =
-    getUserFromCache(session, LINK_USER_KEY)
+  private def getLinkUser(session: Session): Option[AuthUser] = getUserFromCache(session, LINK_USER_KEY)
 
   private def loginAndRedirect[A](request: Request[A], loginUser: Future[AuthUser]): Future[SimpleResult] = {
     for {
@@ -275,42 +272,35 @@ package object authentication {
     play.api.cache.Cache.get(getCacheKey(session, key)._1)
   }
 
-  private def getUserFromCache(session: Session, key: String): Option[AuthUser] = {
-    val o = getFromCache(session, key)
-    o match {
-      case Some(AuthUser) => Some(o.get.asInstanceOf[AuthUser])
-      case _              => None
+  private def getUserFromCache(session: Session, key: String): Option[AuthUser] =
+    getFromCache(session, key) match {
+      case None       => None
+      case Some(user) => Some(user.asInstanceOf[AuthUser])
     }
-  }
 
-  def storeMergeUser(authUser: AuthUser, session: Session) {
+  private def storeMergeUser(authUser: AuthUser, session: Session): Session = {
     // TODO the cache is not ideal for this, because it
     // might get cleared any time
     storeUserInCache(session, MERGE_USER_KEY, authUser)
   }
 
-  def getMergeUser(session: Session): Option[AuthUser] = {
+  private def getMergeUser(session: Session): Option[AuthUser] =
     getUserFromCache(session, MERGE_USER_KEY)
-  }
 
-  def storeLinkUser(authUser: AuthUser, session: Session) {
+  private def storeLinkUser(authUser: AuthUser, session: Session): Session =
     // TODO the cache is not good for this
     // it might get cleared any time
     storeUserInCache(session, LINK_USER_KEY, authUser)
-  }
 
-  def removeLinkUser(session: Session) = {
+  private def removeLinkUser(session: Session) =
     removeFromCache(session, LINK_USER_KEY)
-  }
 
   // TODO session value set is not stored later with the response
-  private def getPlayAuthSessionId(session: Session): String = {
+  private def getPlayAuthSessionId(session: Session): String =
     session.get(SESSION_ID_KEY).getOrElse(java.util.UUID.randomUUID().toString)
-  }
 
-  private def storeUserInCache(session: Session, key: String, authUser: AuthUser) = {
+  private def storeUserInCache(session: Session, key: String, authUser: AuthUser): Session =
     storeInCache(session, key, authUser)
-  }
 
   def storeInCache(session: Session, key: String, o: AnyRef): Session = {
     val cacheKey = getCacheKey(session, key)
@@ -428,10 +418,9 @@ package object authentication {
           Logger.info(s"Linking additional account.")
           loginAndRedirect(request, getUserService.link(oldUser, newUser))
         } else {
-          Logger.info(
-            s"Will not link additional account. Auto linking is disabled.")
-          storeLinkUser(newUser, request.session)
-          Future.successful(Results.Redirect(use[PlaySecPlugin].askLink))
+          Logger.info(s"Will not link additional account. Auto linking is disabled.")
+          val upd = storeLinkUser(newUser, request.session)
+          Future.successful(Results.Redirect(use[PlaySecPlugin].askLink).withSession(upd))
         }
     }
   }

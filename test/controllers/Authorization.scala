@@ -194,6 +194,10 @@ object Authorization extends Controller with DeadboltActions with JsonWebConvers
     "email" -> email
   )
 
+  val linkForm = Form(
+    "link" -> boolean
+  )
+
   val userLoginForm = Form(
     loginForm.mapping.verifying(
       "Wrong login or password",

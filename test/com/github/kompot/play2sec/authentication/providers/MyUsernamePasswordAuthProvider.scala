@@ -58,7 +58,7 @@ class MyUsernamePasswordAuthProvider(app: play.Application)
 
   protected def getResetPasswordForm = Authorization.resetPasswordForm
 
-  protected def getVerifiedEmailTuple(email: String) = ("", email)
+  protected def getVerifiedEmailTuple(email: String) = (email, "")
 
   protected def loginUser(authUser: MyLoginUsernamePasswordAuthUser): Future[LoginResult.Value] = {
     for {

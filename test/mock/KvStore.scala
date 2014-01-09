@@ -19,6 +19,8 @@ trait KvStore {
   def get(k: String): Future[Option[A]] = Future.successful(store.get(k))
 
   def clearStore() = store.clear()
+
+  def getStore = store
 }
 
 object KvStore {

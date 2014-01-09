@@ -22,6 +22,11 @@ class FakeAppShortLivingUser extends FakeApplication(
   additionalConfiguration = FakeApp.additionalConfiguration,
   additionalPlugins = FakeApp.additionalPlugins ++ FakeApp.shortLivingUser)
 
+class FakeAppNoAutoLink extends FakeApplication(
+  withRoutes = FakeApp.routes,
+  additionalConfiguration = FakeApp.additionalConfiguration ++ FakeApp.noAutoLink,
+  additionalPlugins = FakeApp.additionalPlugins ++ FakeApp.normalUser)
+
 object FakeApp extends JsonWebConversions {
   val routes: PartialFunction[(String, String), Handler] = {
     case ("GET", path: String) if path.startsWith("/auth/external/") =>
@@ -72,6 +77,28 @@ object FakeApp extends JsonWebConversions {
     case ("GET", "/auth/logout") =>
       Action { implicit request =>
         authentication.logout(request)
+      }
+    case ("GET", "/auth/ask-link") =>
+      Action { implicit request =>
+        Results.Ok(Html(
+          """
+            <p>We've found that you're trying to log in using different method than before.</p>
+            <p>Would you like to link this method to your account so that you are able to login using all of them?</p>
+            <form action="/auth/link" method="post">
+              <input type="checkbox" name="link" id="link" value="true" /> Link account<br />
+              <input type="submit" />
+            </form>
+          """.stripMargin))
+      }
+    case ("POST", "/auth/link") =>
+      Action.async { implicit request =>
+        Authorization.linkForm.bindFromRequest.fold(
+          { errors => Future.successful(Results.BadRequest[JsValue](
+            JsResponseError("Link form is invalid.", Some(errors)))) },
+          { case formLinkValue => authentication.link(request, formLinkValue)
+          }
+        )
+
       }
     case ("GET", "/") => Action(Results.Ok("It's home baby"))
   }
@@ -126,5 +153,9 @@ object FakeApp extends JsonWebConversions {
 
   val shortLivingUser = Seq(
     "com.github.kompot.play2sec.authentication.providers.MyUsernamePasswordAuthProviderShortLiving"
+  )
+
+  val noAutoLink = Map(
+    "play2sec.accountAutoLink" -> "false"
   )
 }
