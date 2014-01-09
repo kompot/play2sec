@@ -70,7 +70,7 @@ package object authentication {
 
   def getUserService: UserService = use[PlaySecPlugin].userService
 
-  def storeUser[A](request: Request[A], authUser: AuthUser): Session = {
+  private def storeUser[A](request: Request[A], authUser: AuthUser): Session = {
     // User logged in once more - wanna make some updates?
     val u: AuthUser = getUserService.whenLogin(authUser, request)
 
@@ -80,10 +80,8 @@ package object authentication {
     val session = request.session +
         (SESSION_USER_KEY, u.id) +
         (SESSION_PROVIDER_KEY, u.provider)
-    if (withExpiration)
-      session + (SESSION_EXPIRES_KEY, u.expires.toString)
-    else
-      session - SESSION_EXPIRES_KEY
+    if (withExpiration) session + (SESSION_EXPIRES_KEY, u.expires.toString)
+    else                session -  SESSION_EXPIRES_KEY
   }
 
   /**
@@ -92,10 +90,9 @@ package object authentication {
    * @return
    */
   def isLoggedIn(session: Session): Boolean = {
-    val idAndProviderAreNotEmpty = session.get(SESSION_USER_KEY).isDefined && session.get(SESSION_PROVIDER_KEY).isDefined
-    val providerIsRegistered = com.github.kompot.play2sec.authentication.providers.hasProvider(session.get(SESSION_PROVIDER_KEY).getOrElse(""))
-
-    def validExpirationTime: Boolean = {
+    val idAndProviderAreNotEmpty = getUser(session) != None
+    val providerIsRegistered = providers.hasProvider(session.get(SESSION_PROVIDER_KEY))
+    val validExpirationTime =
       if (session.get(SESSION_EXPIRES_KEY).isDefined) {
         // expiration is set
         val expires = getExpiration(session)
@@ -108,32 +105,15 @@ package object authentication {
       } else {
         true
       }
-    }
-
     idAndProviderAreNotEmpty && providerIsRegistered && validExpirationTime
   }
 
-  private def getExpiration(session: Session): Long = {
+  private def getExpiration(session: Session): Long =
     session.get(SESSION_EXPIRES_KEY).map { x =>
-//      Logger.info(s"expires key is $x")
-      // unknown error "value toLong is not a member of String" when using
+      // TODO: unknown error "value toLong is not a member of String" when using
       // x.toLong
       java.lang.Long.parseLong(x)
     }.getOrElse(AuthUser.NO_EXPIRATION)
-
-    //    if (!session.get(EXPIRES_KEY).isDefined) AuthUser.NO_EXPIRATION
-//    long expires;
-//    if (!session.get(EXPIRES_KEY).isEmpty()) {
-//      try {
-//        val expires = Long.parseLong(session.get(EXPIRES_KEY).get());
-//      } catch (final NumberFormatException nfe) {
-//        val expires1 = AuthUser.NO_EXPIRATION;
-//      }
-//    } else {
-//      expires = AuthUser.NO_EXPIRATION;
-//    }
-//    return expires;
-  }
 
   def logout[A](request: Request[A]): SimpleResult = {
     Logger.info("Logging out")
@@ -146,13 +126,15 @@ package object authentication {
    * @param session
    * @return
    */
-  def getUser(session: Session): Option[AuthUser] = {
+  def getUser(session: Session): Option[AuthUser] =
     (session.get(SESSION_PROVIDER_KEY), session.get(SESSION_USER_KEY)) match {
       case (Some(provider), Some(id)) =>
-        Some(getProvider(provider).get.getSessionAuthUser(id, getExpiration(session)))
+        getProvider(provider) match {
+          case Some(p) => Some(p.getSessionAuthUser(id, getExpiration(session)))
+          case _       => None
+        }
       case _ => None
     }
-  }
 
   def getUser[A](request: Request[A]): Option[AuthUser] = getUser(request.session)
   def isAccountAutoMerge    = getConfiguration.flatMap(_.getBoolean(
@@ -162,32 +144,7 @@ package object authentication {
   def isAccountMergeEnabled = getConfiguration.flatMap(_.getBoolean(
     CFG_ACCOUNT_MERGE_ENABLED)).getOrElse(false)
 
-  @deprecated("Force constraints via PlaySecPlugin", "0.0.2")
-  def getUrl(c: Call, settingFallback: String): String = {
-    // TODO: should avoid nulls and checking for them
-
-    // this can be null if the user did
-    // not correctly define the resolver
-    if (c != null) {
-      c.url
-    } else {
-      // go to root instead, but log this
-      Logger.warn("Resolver did not contain information about where to go - redirecting to /")
-      getConfiguration.flatMap(_.getString(settingFallback)).getOrElse {
-        Logger.error("Config setting '" + settingFallback + "' was not present!")
-        "/"
-      }
-    }
-  }
-
-  // TODO: what is this for?
-  def getProvider(providerKey: String): Option[AuthProvider] =
-    // TODO direct get
-    com.github.kompot.play2sec.authentication.providers.get(providerKey)
-//match {
-//    case a.providers.AuthProvider => _
-//    case _ => throw new AuthException("Provider %s is not defined".format(providerKey))
-//  }
+  private def getProvider(providerKey: String) = providers.get(providerKey)
 
   def link[A](request: Request[A], link: Boolean): Future[SimpleResult] =
     getLinkUser(request.session) match {
@@ -220,40 +177,34 @@ package object authentication {
 
   private def getLinkUser(session: Session): Option[AuthUser] = getUserFromCache(session, LINK_USER_KEY)
 
-  private def loginAndRedirect[A](request: Request[A], loginUser: Future[AuthUser]): Future[SimpleResult] = {
+  private def loginAndRedirect[A](request: Request[A], loginUser: Future[AuthUser]): Future[SimpleResult] =
     for {
       lu <- loginUser
     } yield {
       val newSession = storeUser(request, lu)
       use[PlaySecPlugin].afterAuth(request.body).withSession(newSession - SESSION_ORIGINAL_URL)
     }
-  }
 
-  def merge(request: Request[AnyContent], merge: Boolean): Future[SimpleResult] = {
-    val mergeUser = getMergeUser(request.session)
-
-    mergeUser match {
+  def merge(request: Request[AnyContent], merge: Boolean): Future[SimpleResult] =
+    getMergeUser(request.session) match {
       case None =>
         Logger.warn("User to be merged not found.")
-        return Future.successful(Results.Forbidden("User to be merged not found."))
-      case Some(_) =>
+        Future.successful(Results.Forbidden("User to be merged not found."))
+      case Some(user) =>
+        val loginUser: Future[AuthUser] = if (merge) {
+          // User accepted merge, so do it
+          getUserService.merge(user, getUser(request.session))
+        } else {
+          // User declined merge, so log out the old user, and log out with
+          // the new one
+          Future.successful(user)
+        }
+        removeMergeUser(request.session)
+        loginAndRedirect(request, loginUser)
     }
 
-    val loginUser: Future[AuthUser] = if (merge) {
-      // User accepted merge, so do it
-      getUserService.merge(mergeUser.get, getUser(request.session))
-    } else {
-      // User declined merge, so log out the old user, and log out with
-      // the new one
-      Future.successful(mergeUser.get)
-    }
-    removeMergeUser(request.session)
-    loginAndRedirect(request, loginUser)
-  }
-
-  def removeMergeUser(session: Session) {
+  private def removeMergeUser(session: Session): Option[Any] =
     removeFromCache(session, MERGE_USER_KEY)
-  }
 
   def removeFromCache(session: Session, key: String): Option[Any] = {
     val o = getFromCache(session, key)
@@ -309,7 +260,7 @@ package object authentication {
   }
 
   @throws(scala.Predef.classOf[AuthException])
-  def signupUser(u: AuthUser): Future[AuthUser] = {
+  def signupUser(u: AuthUser): Future[AuthUser] =
     for {
       id <- getUserService.save(u)
     } yield {
@@ -318,13 +269,14 @@ package object authentication {
       }
       u
     }
-  }
 
   def handleAuthentication[A](provider: String, request: Request[A],
-      payload: Option[Case] = None): Future[SimpleResult] = {
+      payload: Option[Case] = None): Future[SimpleResult] =
      for {
-       // TODO direct get
-       auth <- getProvider(provider).get.authenticate(request, payload)
+       auth <- getProvider(provider) match {
+         case Some(p) => p.authenticate(request, payload)
+         case _ => throw new RuntimeException(s"Unknown provider $provider")
+       }
      } yield {
        auth match {
          case LoginSignupResult(Some(result), _, _, _) =>
@@ -339,7 +291,6 @@ package object authentication {
            Await.result(processUser(request, auth.authUser.get), 10.second)
        }
      }
-  }
 
   private def processUser[A](request: Request[A], newUser: AuthUser): Future[SimpleResult] = {
     Logger.info("User identity found.")

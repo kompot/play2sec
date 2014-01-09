@@ -20,7 +20,7 @@ import scala.collection.immutable.HashMap
 
 package object providers {
   // TODO: var -> val
-  var providers: Map[String, AuthProvider] = new HashMap[String, AuthProvider]
+  private var providers: Map[String, AuthProvider] = new HashMap[String, AuthProvider]
 
   def register(provider: String, p: AuthProvider) {
     providers = providers.updated(provider, p)
@@ -32,14 +32,12 @@ package object providers {
 //    }
   }
 
-  def unregister(provider: String) = {
-    providers - provider
-  }
+  def unregister(provider: String) = providers - provider
 
   def get(provider: String): Option[AuthProvider] = providers.get(provider)
 
-  // TODO not used; remove?
-  def getProviders: Iterable[AuthProvider] = providers.values
-
-  def hasProvider(provider: String): Boolean = providers.contains(provider)
+  def hasProvider(provider: Option[String]): Boolean = provider match {
+    case Some(p) => providers.contains(p)
+    case _       => false
+  }
 }
