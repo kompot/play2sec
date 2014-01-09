@@ -300,8 +300,8 @@ package object authentication {
       oldIdentity <-
         if (loggedIn) getUserService.getByAuthUserIdentity(oldUser.get)
         else Future.successful(None)
-      loginIdentity <- getUserService.getByAuthUserIdentity(newUser)
-      chosenPath <- choosePath(loggedIn, oldIdentity, request, loginIdentity, newUser, oldUser)
+      newIdentity <- getUserService.getByAuthUserIdentity(newUser)
+      chosenPath <- choosePath(loggedIn, oldIdentity, request, newIdentity, newUser, oldUser)
     } yield {
       chosenPath
     }
@@ -321,16 +321,16 @@ package object authentication {
    * @param loggedIn
    * @param oldIdentity
    * @param request
-   * @param loginIdentity
+   * @param newIdentity
    * @param newUser
    * @param oldUser
    * @tparam A
    * @return
    */
   private def choosePath[A](loggedIn: Boolean, oldIdentity: Option[UserService#UserClass],
-      request: Request[A], loginIdentity: Option[UserService#UserClass],
+      request: Request[A], newIdentity: Option[UserService#UserClass],
       newUser: AuthUser, oldUser: Option[AuthUser]): Future[SimpleResult] = {
-    val linked = loginIdentity != None
+    val linked = newIdentity != None
     Logger.info(s"IsLinked: $linked, isLoggedIn: $loggedIn")
     (linked, loggedIn, oldIdentity) match {
       case (_, true, None) =>
@@ -343,7 +343,7 @@ package object authentication {
         loginAndRedirect(request, Future.successful(newUser))
       case (true, true, _) =>
         Logger.info("Performing merge.")
-        if (isAccountMergeEnabled && !loginIdentity.equals(oldIdentity)) {
+        if (isAccountMergeEnabled && !newIdentity.equals(oldIdentity)) {
           if (isAccountAutoMerge) {
             Logger.info("Auto merge is active.")
             loginAndRedirect(request, getUserService.merge(newUser, oldUser))
