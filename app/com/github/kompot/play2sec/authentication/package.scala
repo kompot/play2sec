@@ -80,7 +80,7 @@ package object authentication {
     use[PlaySecPlugin].afterLogout(request.body).withNewSession
   }
 
-  def merge(request: Request[AnyContent], merge: Boolean): Future[SimpleResult] =
+  def merge[A](request: Request[A], merge: Boolean): Future[SimpleResult] =
     getMergeUser(request.session) match {
       case None =>
         Logger.warn("User to be merged not found.")
@@ -157,14 +157,14 @@ package object authentication {
         loginAndRedirect(request, Future.successful(newUser))
       case (true, true, _) =>
         Logger.info("Performing merge.")
-        if (isAccountMergeEnabled && !newIdentity.equals(oldIdentity)) {
+        if (isAccountMergeEnabled && newIdentity != oldIdentity) {
           if (isAccountAutoMerge) {
             Logger.info("Auto merge is active.")
             loginAndRedirect(request, getUserService.merge(newUser, oldUser))
           } else {
             Logger.info("Auto merge is not active.")
-            storeMergeUser(newUser, request.session)
-            Future.successful(Results.Redirect(use[PlaySecPlugin].askMerge))
+            val upd = storeMergeUser(newUser, request.session)
+            Future.successful(Results.Redirect(use[PlaySecPlugin].askMerge).withSession(upd))
           }
         } else {
           Logger.info("Doing nothing, auto merging is not enabled or " +
@@ -230,7 +230,7 @@ package object authentication {
    * @param session
    * @return
    */
-  private def getUser(session: Session): Option[AuthUser] =
+  private[play2sec] def getUser(session: Session): Option[AuthUser] =
     (session.get(SESSION_PROVIDER_KEY), session.get(SESSION_USER_KEY)) match {
       case (Some(provider), Some(id)) =>
         getProvider(provider) match {
@@ -357,11 +357,10 @@ package object authentication {
   // it might get cleared any time
     storeUserInCache(session, LINK_USER_KEY, authUser)
 
-  private def storeMergeUser(authUser: AuthUser, session: Session): Session = {
+  private def storeMergeUser(authUser: AuthUser, session: Session): Session =
     // TODO the cache is not ideal for this, because it
     // might get cleared any time
     storeUserInCache(session, MERGE_USER_KEY, authUser)
-  }
 
   private def storeUser[A](request: Request[A], authUser: AuthUser): Session = {
     // User logged in once more - wanna make some updates?

@@ -1,3 +1,5 @@
+package com.github.kompot.play2sec
+
 import bootstrap.Global.Injector
 import com.github.kompot.play2sec
 import com.github.kompot.play2sec.authentication

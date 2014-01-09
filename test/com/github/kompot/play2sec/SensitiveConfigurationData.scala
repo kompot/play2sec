@@ -1,3 +1,5 @@
+package com.github.kompot.play2sec
+
 import com.github.kompot.play2sec.authentication.providers.oauth1.twitter
 .TwitterAuthProvider
 import com.github.kompot.play2sec.authentication.providers.oauth2.facebook

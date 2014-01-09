@@ -27,11 +27,15 @@ class UserStore extends KvStore with UserService {
       Future.successful(None)
 
   def getByAuthUserIdentity(authUser: AuthUserIdentity) =
-    Future.successful(store.find(u => u._2.remoteUsers.exists(ru =>
-      ru.id       == authUser.id &&
-      ru.provider == authUserProviderToRemoteUserProvider(authUser).toString) && !u._2.isBlocked).map(_._2))
+    Future.successful(getByAuthUserIdentitySync(authUser))
+
+  def getByAuthUserIdentitySync(authUser: AuthUserIdentity) =
+    store.find(u => u._2.remoteUsers.exists(ru =>
+      ru.id == authUser.id &&
+      ru.provider == authUserProviderToRemoteUserProvider(authUser).toString) && !u._2.isBlocked).map(_._2)
 
   def merge(newUser: AuthUser, oldUser: Option[AuthUser]) = {
+    removeByAuthUserIdentity(newUser)
     link(oldUser, newUser)
     Future.successful(newUser)
   }
@@ -130,4 +134,11 @@ class UserStore extends KvStore with UserService {
     put(user._id, user)
     user
   }
+
+  // just removing other user but complex actions like
+  // merging user activity could be done here
+  private def removeByAuthUserIdentity(authUser: AuthUserIdentity) =
+    getByAuthUserIdentitySync(authUser).map { foundUser =>
+      store = store - foundUser._id
+    }
 }

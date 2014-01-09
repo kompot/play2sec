@@ -1,3 +1,5 @@
+package com.github.kompot.play2sec
+
 import bootstrap.Global.Injector
 import com.github.kompot.play2sec.authentication
 import com.github.kompot.play2sec.authentication.providers.password.{Case,
@@ -25,6 +27,11 @@ class FakeAppShortLivingUser extends FakeApplication(
 class FakeAppNoAutoLink extends FakeApplication(
   withRoutes = FakeApp.routes,
   additionalConfiguration = FakeApp.additionalConfiguration ++ FakeApp.noAutoLink,
+  additionalPlugins = FakeApp.additionalPlugins ++ FakeApp.normalUser)
+
+class FakeAppNoAutoMerge extends FakeApplication(
+  withRoutes = FakeApp.routes,
+  additionalConfiguration = FakeApp.additionalConfiguration ++ FakeApp.noAutoMerge,
   additionalPlugins = FakeApp.additionalPlugins ++ FakeApp.normalUser)
 
 object FakeApp extends JsonWebConversions {
@@ -82,8 +89,9 @@ object FakeApp extends JsonWebConversions {
       Action { implicit request =>
         Results.Ok(Html(
           """
-            <p>We've found that you're trying to log in using different method than before.</p>
+            <p>You did not use these credentials to log in into your account before.</p>
             <p>Would you like to link this method to your account so that you are able to login using all of them?</p>
+            <p>If you don't check the box then a separate account will be created.</p>
             <form action="/auth/link" method="post">
               <input type="checkbox" name="link" id="link" value="true" /> Link account<br />
               <input type="submit" />
@@ -98,7 +106,28 @@ object FakeApp extends JsonWebConversions {
           { case formLinkValue => authentication.link(request, formLinkValue)
           }
         )
-
+      }
+    case ("GET", "/auth/ask-merge") =>
+      Action { implicit request =>
+        Results.Ok(Html(
+          """
+            <p>We've found that account you just used is linked to some other account in our system.</p>
+            <p>Would you like to merge them?</p>
+            <p>If you don't check the box then you will logged in with that account and no actions will be performed.</p>
+            <form action="/auth/merge" method="post">
+              <input type="checkbox" name="merge" id="merge" value="true" /> Merge accounts<br />
+              <input type="submit" />
+            </form>
+          """.stripMargin))
+      }
+    case ("POST", "/auth/merge") =>
+      Action.async { implicit request =>
+        Authorization.mergeForm.bindFromRequest.fold(
+          { errors => Future.successful(Results.BadRequest[JsValue](
+            JsResponseError("Merge form is invalid.", Some(errors)))) },
+          { case formMergeValue => authentication.merge(request, formMergeValue)
+          }
+        )
       }
     case ("GET", "/") => Action(Results.Ok("It's home baby"))
   }
@@ -157,5 +186,9 @@ object FakeApp extends JsonWebConversions {
 
   val noAutoLink = Map(
     "play2sec.accountAutoLink" -> "false"
+  )
+
+  val noAutoMerge = Map(
+    "play2sec.accountAutoMerge" -> "false"
   )
 }

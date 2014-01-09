@@ -1,3 +1,5 @@
+package com.github.kompot.play2sec
+
 import bootstrap.Global.Injector
 import com.github.kompot.play2sec.authentication.providers.oauth1.twitter
 .TwitterAuthProvider

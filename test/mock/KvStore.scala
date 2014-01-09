@@ -7,7 +7,7 @@ import scala.concurrent.Future
 trait KvStore {
   type A
 
-  protected val store: ParMap[String, A] = new ParHashMap[String, A]
+  protected var store: ParMap[String, A] = new ParHashMap[String, A]
 
   protected def generateId = KvStore.generateId
 

@@ -34,7 +34,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import play.api.Logger
 import scala.concurrent.Future
 
-@deprecated("Move all stuff to FakeApp from here", "0.0.2")
+@deprecated("Move all stuff to com.github.kompot.play2sec.FakeApp from here", "0.0.2")
 object Authorization extends Controller with DeadboltActions with JsonWebConversions {
   val userStore = Injector.userStore
   val tokenStore = Injector.tokenStore
@@ -196,6 +196,10 @@ object Authorization extends Controller with DeadboltActions with JsonWebConvers
 
   val linkForm = Form(
     "link" -> boolean
+  )
+
+  val mergeForm = Form(
+    "merge" -> boolean
   )
 
   val userLoginForm = Form(
