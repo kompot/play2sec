@@ -44,10 +44,8 @@ trait DeadboltActions extends Results with BodyParsers {
    * @return
    */
   def Restrictions[A](roleNames: Array[String],
-                      deadboltHandler: DeadboltHandler)(action: Action[A]): Action[A] = {
-    Restrictions[A](List(roleNames),
-                    deadboltHandler)(action)
-  }
+                      deadboltHandler: DeadboltHandler)(action: Action[A]): Action[A] =
+    Restrictions[A](List(roleNames), deadboltHandler)(action)
 
   /**
    * Restrict access to an action to users that have all the specified roles
@@ -60,8 +58,7 @@ trait DeadboltActions extends Results with BodyParsers {
    * @tparam A
    * @return
    */
-  def Restrictions[A](roleGroups: List[Array[String]],
-                      deadboltHandler: DeadboltHandler)
+  def Restrictions[A](roleGroups: List[Array[String]], deadboltHandler: DeadboltHandler)
                      (action: Action[A]): Action[A] = {
     Action.async(action.parser) { implicit request =>
 
@@ -72,20 +69,18 @@ trait DeadboltActions extends Results with BodyParsers {
       }
 
       deadboltHandler.beforeAuthCheck(request) match {
-          case Some(result) => result
-          case _ => {
-            if (roleGroups.isEmpty) deadboltHandler.onAuthFailure(request)
-            else {
-              deadboltHandler.getSubject(request) match {
-                case Some(subject) => {
-                  if (check(subject, roleGroups.head, roleGroups.tail)) action(request)
-                  else deadboltHandler.onAuthFailure(request)
-                }
-                case _ => deadboltHandler.onAuthFailure(request)
-              }
+        case Some(result) => result
+        case _ =>
+          if (roleGroups.isEmpty) deadboltHandler.onAuthFailure(request)
+          else {
+            deadboltHandler.getSubject(request) match {
+              case Some(subject) =>
+                if (check(subject, roleGroups.head, roleGroups.tail)) action(request)
+                else deadboltHandler.onAuthFailure(request)
+              case _ => deadboltHandler.onAuthFailure(request)
             }
           }
-        }
+      }
     }
   }
 
@@ -130,18 +125,16 @@ trait DeadboltActions extends Results with BodyParsers {
     Action.async(action.parser) { implicit request =>
       deadboltHandler.beforeAuthCheck(request) match {
         case Some(result) => result
-        case _ => {
+        case _ =>
           deadboltHandler.getDynamicResourceHandler(request) match {
-            case Some(dynamicHandler) => {
+            case Some(dynamicHandler) =>
               if (dynamicHandler.isAllowed(zone.getClass.getSimpleName, form, deadboltHandler, request))
                 action(request)
               else
                 deadboltHandler.onAuthFailure(request)
-            }
             case None =>
               throw new RuntimeException("A dynamic resource is specified but no dynamic resource handler is provided")
           }
-        }
       }
     }
   }
@@ -165,30 +158,25 @@ trait DeadboltActions extends Results with BodyParsers {
       implicit request =>
         deadboltHandler.beforeAuthCheck(request) match {
           case Some(result) => result
-          case _ => {
+          case _ =>
             // TODO direct get, might fail, convert to map
             val subject = deadboltHandler.getSubject(request).get
             patternType match {
-              case PatternType.EQUALITY => {
+              case PatternType.EQUALITY =>
                 if (DeadboltAnalyzer.checkPatternEquality(subject, value)) action(request)
                 else deadboltHandler.onAuthFailure(request)
-              }
-              case PatternType.REGEX => {
+              case PatternType.REGEX =>
                 if (DeadboltAnalyzer.checkRegexPattern(subject, getPattern(value))) action(request)
                 else deadboltHandler.onAuthFailure(request)
-              }
-              case PatternType.CUSTOM => {
+              case PatternType.CUSTOM =>
                 deadboltHandler.getDynamicResourceHandler(request) match {
-                  case Some(dynamicHandler) => {
+                  case Some(dynamicHandler) =>
                     if (dynamicHandler.checkPermission(value, deadboltHandler, request)) action(request)
                     else deadboltHandler.onAuthFailure(request)
-                  }
                   case None =>
                     throw new RuntimeException("A custom pattern is specified but no dynamic resource handler is provided")
                 }
-              }
             }
-          }
         }
     }
   }
@@ -201,19 +189,17 @@ trait DeadboltActions extends Results with BodyParsers {
    * @tparam A
    * @return
    */
-  def SubjectPresent[A](deadboltHandler: DeadboltHandler)(action: Action[A]): Action[A] = {
+  def SubjectPresent[A](deadboltHandler: DeadboltHandler)(action: Action[A]): Action[A] =
     Action.async(action.parser) { implicit request =>
       deadboltHandler.beforeAuthCheck(request) match {
-            case Some(result) => result
-            case _ => {
-              deadboltHandler.getSubject(request) match {
-                case Some(handler) => action(request)
-                case None => deadboltHandler.onAuthFailure(request)
-              }
-            }
+        case Some(result) => result
+        case _ =>
+          deadboltHandler.getSubject(request) match {
+            case Some(handler) => action(request)
+            case None => deadboltHandler.onAuthFailure(request)
           }
+      }
     }
-  }
 
   /**
    * Denies access to the action if there is a subject present.
@@ -223,17 +209,15 @@ trait DeadboltActions extends Results with BodyParsers {
    * @tparam A
    * @return
    */
-  def SubjectNotPresent[A](deadboltHandler: DeadboltHandler)(action: Action[A]): Action[A] = {
+  def SubjectNotPresent[A](deadboltHandler: DeadboltHandler)(action: Action[A]): Action[A] =
     Action.async(action.parser) { implicit request =>
       deadboltHandler.beforeAuthCheck(request) match {
-            case Some(result) => result
-            case _ => {
-              deadboltHandler.getSubject(request) match {
-                case Some(subject) => deadboltHandler.onAuthFailure(request)
-                case None => action(request)
-              }
-            }
+        case Some(result) => result
+        case _ =>
+          deadboltHandler.getSubject(request) match {
+            case Some(subject) => deadboltHandler.onAuthFailure(request)
+            case None => action(request)
           }
+      }
     }
-  }
 }

@@ -44,8 +44,8 @@ object DeadboltAnalyzer {
    * @param subject the subject
    * @return a non-null list containing all role names
    */
-  private def getRoleNames(
-      subject: Subject): List[String] = subject.getRoles.map(_.getName)
+  private def getRoleNames(subject: Subject): List[String] =
+    subject.getRoles.map(_.getName)
 
   /**
    * Check if the subject has the given role.
@@ -54,8 +54,8 @@ object DeadboltAnalyzer {
    * @param roleName the name of the role
    * @return true iff the subject has the role represented by the role name
    */
-  def hasRole(subject: Subject, roleName: String): Boolean = getRoleNames(
-    subject).contains(roleName)
+  def hasRole(subject: Subject, roleName: String): Boolean =
+    getRoleNames(subject).contains(roleName)
 
   /**
    * Check if the {@link Subject} has all the roles given in the roleNames

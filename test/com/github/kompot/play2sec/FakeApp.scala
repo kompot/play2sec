@@ -13,6 +13,8 @@ import play.api.templates.Html
 import play.api.test.FakeApplication
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
+import com.github.kompot.play2sec.authorization.handler.CustomDeadboltHandler
+import com.github.kompot.play2sec.authorization.scala.DeadboltActions
 
 class FakeApp extends FakeApplication(
   withRoutes = FakeApp.routes,
@@ -34,7 +36,7 @@ class FakeAppNoAutoMerge extends FakeApplication(
   additionalConfiguration = FakeApp.additionalConfiguration ++ FakeApp.noAutoMerge,
   additionalPlugins = FakeApp.additionalPlugins ++ FakeApp.normalUser)
 
-object FakeApp extends JsonWebConversions {
+object FakeApp extends JsonWebConversions with DeadboltActions {
   val routes: PartialFunction[(String, String), Handler] = {
     case ("GET", path: String) if path.startsWith("/auth/external/") =>
       Action.async { implicit request =>
@@ -129,6 +131,20 @@ object FakeApp extends JsonWebConversions {
           }
         )
       }
+    case ("GET", "/auth/authenticated-only") =>
+      SubjectPresent(new CustomDeadboltHandler()) { Action { implicit request =>
+        Results.Ok(Html(
+          """
+            <p>This page is visible only to authenticated users.</p>
+          """.stripMargin))
+      } }
+    case ("GET", "/auth/not-authenticated-only") =>
+      SubjectNotPresent(new CustomDeadboltHandler()) { Action { implicit request =>
+        Results.Ok(Html(
+          """
+            <p>This page is visible only to not authenticated users.</p>
+          """.stripMargin))
+      } }
     case ("GET", "/") => Action(Results.Ok("It's home baby"))
   }
   val additionalConfiguration = Map(
