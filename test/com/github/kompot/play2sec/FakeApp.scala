@@ -147,6 +147,11 @@ object FakeApp extends JsonWebConversions {
     "play2sec.google.accessTokenUrl" -> "https://accounts.google.com/o/oauth2/token",
     "play2sec.google.userInfoUrl" -> "https://www.googleapis.com/oauth2/v1/userinfo",
     "play2sec.google.scope" -> "https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email",
+    "play2sec.vkontakte.authorizationUrl" -> "https://oauth.vk.com/authorize",
+    "play2sec.vkontakte.accessTokenUrl" -> "https://oauth.vk.com/access_token",
+    "play2sec.vkontakte.userInfoUrl" -> "https://api.vkontakte.ru/method/getProfiles",
+    // TODO without setting scope there is NPE, fix it
+    "play2sec.vkontakte.scope" -> "",
     "play2sec.accountAutoLink" -> "true",
     "play2sec.accountMergeEnabled" -> "true",
     "play2sec.accountAutoMerge" -> "true",
@@ -173,6 +178,7 @@ object FakeApp extends JsonWebConversions {
     "com.github.kompot.play2sec.authentication.providers.oauth1.twitter.TwitterAuthProvider",
     "com.github.kompot.play2sec.authentication.providers.oauth2.facebook.FacebookAuthProvider",
     "com.github.kompot.play2sec.authentication.providers.oauth2.google.GoogleAuthProvider",
+    "com.github.kompot.play2sec.authentication.providers.oauth2.vkontakte.VkontakteAuthProvider",
     "com.github.kompot.play2sec.authentication.DefaultPlaySecPlugin"
   )
 
