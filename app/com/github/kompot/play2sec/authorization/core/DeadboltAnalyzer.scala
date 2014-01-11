@@ -70,11 +70,8 @@ object DeadboltAnalyzer {
   def hasAllRoles(subject: Subject, roleNames: Array[String]): Boolean = {
     val currentRoles = getRoleNames(subject)
     roleNames.forall { role =>
-      if (!role.startsWith("!")) {
-        currentRoles.contains(role)
-      } else {
-        !currentRoles.contains(role.substring(1))
-      }
+      if (!role.startsWith("!")) currentRoles.contains(role)
+      else                      !currentRoles.contains(role.substring(1))
     }
   }
 
@@ -86,6 +83,9 @@ object DeadboltAnalyzer {
   def checkRegexPattern(subject: Subject, pattern: Pattern): Boolean =
     subject.getPermissions.exists(p => pattern.matcher(p.getValue).matches())
 
+  def checkRegexPattern(subject: Option[Subject], pattern: Pattern): Boolean =
+    subject.exists(checkRegexPattern(_, pattern))
+
   /**
    * @param subject Subject to check permissions of.
    * @param patternValue Pattern to search for.
@@ -93,4 +93,7 @@ object DeadboltAnalyzer {
    */
   def checkPatternEquality(subject: Subject, patternValue: String): Boolean =
     subject.getPermissions.exists(_.getValue == patternValue)
+
+  def checkPatternEquality(subject: Option[Subject], patternValue: String): Boolean =
+    subject.exists(checkPatternEquality(_, patternValue))
 }

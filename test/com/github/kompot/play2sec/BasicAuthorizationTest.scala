@@ -69,6 +69,32 @@ class BasicAuthorizationTest extends PlaySpecification {
 
     browser.goTo("/auth/admin-only")
     browser.pageSource().contains("visible only to users with admin role") mustEqual true
+
+    Injector.userStore.put(user.get._id, user.get.copy(roles = Set("some-role", "admin")))
+    browser.goTo("/auth/admin-only")
+    browser.pageSource().contains("Access denied") mustEqual true
+  }
+
+  "access to a page with admin-like permissions should be allowed" in new WithBrowser(FIREFOX, new FakeApp) {
+    browser.goTo("/auth/admin-like")
+    browser.pageSource().contains("Access denied") mustEqual true
+
+    val user = await(Injector.userStore.getByAuthUserIdentity(new AuthUserIdentity {
+      def provider = UsernamePasswordAuthProvider.PROVIDER_KEY
+      def id = "kompotik@gmail.com"
+    }))
+
+    user.get mustNotEqual None
+    Injector.userStore.put(user.get._id, user.get.copy(permissions = Set("the almighty tiger")))
+
+    browser.goTo("/auth/logout")
+    browser.goTo("/auth/login")
+    browser.fill("input#email").`with`("kompotik@gmail.com")
+    browser.$("#password").text(password)
+    browser.click("input[type = 'submit']")
+
+    browser.goTo("/auth/admin-like")
+    browser.pageSource().contains("visible only to users with admin-like permissions") mustEqual true
   }
 
   step {

@@ -11,7 +11,7 @@ import com.github.kompot.play2sec.authorization.core.DeadboltRole
 case class User(_id: String, username: Option[String], password: Option[String],
     nameLast: String = "", nameFirst: String = "",
     remoteUsers: Set[RemoteUser], isBlocked: Boolean = false,
-    roles: Set[String] = Set())
+    roles: Set[String] = Set(), permissions: Set[String] = Set())
     extends Subject {
 
   def emailValidated: Boolean = remoteUsers.count(ru =>
@@ -31,7 +31,9 @@ case class User(_id: String, username: Option[String], password: Option[String],
 
   def getRoles: List[DeadboltRole] = roles.map(DeadboltRole).to[List]
 
-  def getPermissions: List[Permission] = ???
+  def getPermissions: List[Permission] = permissions.map(p => new Permission {
+    def getValue = p
+  }).to[List]
 
   def pk = _id
 }

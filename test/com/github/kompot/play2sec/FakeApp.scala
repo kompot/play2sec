@@ -15,6 +15,7 @@ import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 import com.github.kompot.play2sec.authorization.handler.CustomDeadboltHandler
 import com.github.kompot.play2sec.authorization.scala.DeadboltActions
+import com.github.kompot.play2sec.authorization.core.PatternType
 
 class FakeApp extends FakeApplication(
   withRoutes = FakeApp.routes,
@@ -146,10 +147,17 @@ object FakeApp extends JsonWebConversions with DeadboltActions {
           """.stripMargin))
       } }
     case ("GET", "/auth/admin-only") =>
-      Restrictions(Array("admin"), new CustomDeadboltHandler()) { Action { implicit request =>
+      Restrictions(Array("admin", "!some-role"), new CustomDeadboltHandler()) { Action { implicit request =>
         Results.Ok(Html(
           """
             <p>This page is visible only to users with admin role.</p>
+          """.stripMargin))
+      } }
+    case ("GET", "/auth/admin-like") =>
+      Pattern(".*almighty.*|.*root.*", PatternType.REGEX, new CustomDeadboltHandler()) { Action { implicit request =>
+        Results.Ok(Html(
+          """
+            <p>This page is visible only to users with admin-like permissions.</p>
           """.stripMargin))
       } }
 

@@ -72,14 +72,13 @@ trait DeadboltActions extends Results with BodyParsers {
         case Some(result) => result
         case _ =>
           if (roleGroups.isEmpty) deadboltHandler.onAuthFailure(request)
-          else {
+          else
             deadboltHandler.getSubject(request) match {
               case Some(subject) =>
                 if (check(subject, roleGroups.head, roleGroups.tail)) action(request)
                 else deadboltHandler.onAuthFailure(request)
               case _ => deadboltHandler.onAuthFailure(request)
             }
-          }
       }
     }
   }
@@ -154,30 +153,28 @@ trait DeadboltActions extends Results with BodyParsers {
     def getPattern(patternValue: String): Pattern =
       Cache.getOrElse("Deadbolt." + patternValue)(java.util.regex.Pattern.compile(patternValue))
 
-    Action.async(action.parser) {
-      implicit request =>
-        deadboltHandler.beforeAuthCheck(request) match {
-          case Some(result) => result
-          case _ =>
-            // TODO direct get, might fail, convert to map
-            val subject = deadboltHandler.getSubject(request).get
-            patternType match {
-              case PatternType.EQUALITY =>
-                if (DeadboltAnalyzer.checkPatternEquality(subject, value)) action(request)
-                else deadboltHandler.onAuthFailure(request)
-              case PatternType.REGEX =>
-                if (DeadboltAnalyzer.checkRegexPattern(subject, getPattern(value))) action(request)
-                else deadboltHandler.onAuthFailure(request)
-              case PatternType.CUSTOM =>
-                deadboltHandler.getDynamicResourceHandler(request) match {
-                  case Some(dynamicHandler) =>
-                    if (dynamicHandler.checkPermission(value, deadboltHandler, request)) action(request)
-                    else deadboltHandler.onAuthFailure(request)
-                  case None =>
-                    throw new RuntimeException("A custom pattern is specified but no dynamic resource handler is provided")
-                }
-            }
-        }
+    Action.async(action.parser) { implicit request =>
+      deadboltHandler.beforeAuthCheck(request) match {
+        case Some(result) => result
+        case _ =>
+          val subject = deadboltHandler.getSubject(request)
+          patternType match {
+            case PatternType.EQUALITY =>
+              if (DeadboltAnalyzer.checkPatternEquality(subject, value)) action(request)
+              else deadboltHandler.onAuthFailure(request)
+            case PatternType.REGEX =>
+              if (DeadboltAnalyzer.checkRegexPattern(subject, getPattern(value))) action(request)
+              else deadboltHandler.onAuthFailure(request)
+            case PatternType.CUSTOM =>
+              deadboltHandler.getDynamicResourceHandler(request) match {
+                case Some(dynamicHandler) =>
+                  if (dynamicHandler.checkPermission(value, deadboltHandler, request)) action(request)
+                  else deadboltHandler.onAuthFailure(request)
+                case None =>
+                  throw new RuntimeException("A custom pattern is specified but no dynamic resource handler is provided")
+              }
+          }
+      }
     }
   }
 
