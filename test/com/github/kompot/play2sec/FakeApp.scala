@@ -145,6 +145,14 @@ object FakeApp extends JsonWebConversions with DeadboltActions {
             <p>This page is visible only to not authenticated users.</p>
           """.stripMargin))
       } }
+    case ("GET", "/auth/admin-only") =>
+      Restrictions(Array("admin"), new CustomDeadboltHandler()) { Action { implicit request =>
+        Results.Ok(Html(
+          """
+            <p>This page is visible only to users with admin role.</p>
+          """.stripMargin))
+      } }
+
     case ("GET", "/") => Action(Results.Ok("It's home baby"))
   }
   val additionalConfiguration = Map(
