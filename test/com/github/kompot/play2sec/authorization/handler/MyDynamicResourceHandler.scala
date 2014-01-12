@@ -24,10 +24,10 @@ class MyDynamicResourceHandler extends DynamicResourceHandler {
     }
   }
 
-  override def checkPermission[A](permissionValue: String,
-      deadboltHandler: DeadboltHandler, request: Request[A]) = {
-    // todo implement this when demonstrating permissions
-    false
+  override def checkPermission[A](permissionValue: String, deadboltHandler: DeadboltHandler,
+      request: Request[A]) = {
+    deadboltHandler.getSubject(request).exists(
+      _.getPermissions.exists(_.getValue.startsWith(permissionValue)))
   }
 }
 
@@ -68,13 +68,7 @@ object MyDynamicResourceHandler {
       form(idParamName).value.getOrElse(form.data.toList(0)._2)
   }
 
-  private def isSelf(id: String, subj: Subject): Boolean = {
-//    Await(userService.get(BSONObjectID(id))).map(_.id == BSONObjectID(subj.pk)).getOrElse(false)
-    true
-  }
+  private def isSelf(id: String, subj: Subject): Boolean = true
 
-  private def isSelfByUsername(id: String, subj: Subject): Boolean = {
-//    Await(userService.getByUsernameOrId(id)).map(_.id == BSONObjectID(subj.pk)).getOrElse(false)
-    true
-  }
+  private def isSelfByUsername(id: String, subj: Subject): Boolean = true
 }

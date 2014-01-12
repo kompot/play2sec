@@ -16,6 +16,8 @@ import scala.concurrent.Future
 trait DeadboltHandler {
 
   /**
+   * TODO: what is it required for?
+   *
    * Invoked prior to a constraint's test.  If Option.None is returned, the constraint is applied. If
    * the option contains a result, the constraint will not be applied and the wrapped action will not
    * be invoked.

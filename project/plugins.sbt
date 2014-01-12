@@ -13,4 +13,4 @@ resolvers += "sonatype-releases" at "https://oss.sonatype.org/content/repositori
 
 resolvers += Classpaths.sbtPluginReleases
 
-addSbtPlugin("com.sksamuel.scoverage" %% "sbt-scoverage" % "0.95.6")
+addSbtPlugin("com.sksamuel.scoverage" %% "sbt-scoverage" % "0.95.7")

@@ -32,7 +32,7 @@ import com.github.kompot.play2sec.authorization.core.models.Subject
  *
  * @author Steve Chaloner
  */
-trait DeadboltActions extends Results with BodyParsers {
+trait Play2secActions extends Results with BodyParsers {
 
   /**
    * Restrict access to an action to users that have all the specified roles.
@@ -43,9 +43,9 @@ trait DeadboltActions extends Results with BodyParsers {
    * @tparam A
    * @return
    */
-  def Restrictions[A](roleNames: Array[String],
+  def restrictTo[A](roleNames: Array[String],
                       deadboltHandler: DeadboltHandler)(action: Action[A]): Action[A] =
-    Restrictions[A](List(roleNames), deadboltHandler)(action)
+    restrictTo[A](List(roleNames), deadboltHandler)(action)
 
   /**
    * Restrict access to an action to users that have all the specified roles
@@ -58,7 +58,7 @@ trait DeadboltActions extends Results with BodyParsers {
    * @tparam A
    * @return
    */
-  def Restrictions[A](roleGroups: List[Array[String]], deadboltHandler: DeadboltHandler)
+  def restrictTo[A](roleGroups: List[Array[String]], deadboltHandler: DeadboltHandler)
                      (action: Action[A]): Action[A] = {
     Action.async(action.parser) { implicit request =>
 
@@ -115,12 +115,12 @@ trait DeadboltActions extends Results with BodyParsers {
 //    Dynamic(name, form, deadboltHandler)(action)
 //  }
 
-  def Dynamic[A](zone: Zone, meta: String = "", deadboltHandler: DeadboltHandler)(action: Action[A]): Action[A] = {
+  def restrictTo[A](zone: Zone, meta: String = "", deadboltHandler: DeadboltHandler)(action: Action[A]): Action[A] = {
     val form = Form("id" -> Forms.nonEmptyText).bind(Map(("id", meta)))
-    Dynamic(zone, form, deadboltHandler)(action)
+    restrictTo(zone, form, deadboltHandler)(action)
   }
 
-  def Dynamic[A, B](zone: Zone, form: Form[B], deadboltHandler: DeadboltHandler)(action: Action[A]): Action[A] = {
+  def restrictTo[A, B](zone: Zone, form: Form[B], deadboltHandler: DeadboltHandler)(action: Action[A]): Action[A] = {
     Action.async(action.parser) { implicit request =>
       deadboltHandler.beforeAuthCheck(request) match {
         case Some(result) => result
@@ -140,15 +140,14 @@ trait DeadboltActions extends Results with BodyParsers {
 
   /**
    *
-   * @param value
+   * @param permission
    * @param patternType
    * @param deadboltHandler
    * @param action
    * @tparam A
    * @return
    */
-  def Pattern[A](value: String, patternType: PatternType.Value, deadboltHandler: DeadboltHandler)
-      (action: Action[A]): Action[A] = {
+  def restrictTo[A](permission: String, patternType: PatternType.Value, deadboltHandler: DeadboltHandler)(action: Action[A]): Action[A] = {
 
     def getPattern(patternValue: String): Pattern =
       Cache.getOrElse("Deadbolt." + patternValue)(java.util.regex.Pattern.compile(patternValue))
@@ -160,18 +159,20 @@ trait DeadboltActions extends Results with BodyParsers {
           val subject = deadboltHandler.getSubject(request)
           patternType match {
             case PatternType.EQUALITY =>
-              if (DeadboltAnalyzer.checkPatternEquality(subject, value)) action(request)
+              if (DeadboltAnalyzer.checkPatternEquality(subject, permission)) action(request)
               else deadboltHandler.onAuthFailure(request)
             case PatternType.REGEX =>
-              if (DeadboltAnalyzer.checkRegexPattern(subject, getPattern(value))) action(request)
+              if (DeadboltAnalyzer.checkRegexPattern(subject, getPattern(permission))) action(request)
               else deadboltHandler.onAuthFailure(request)
             case PatternType.CUSTOM =>
               deadboltHandler.getDynamicResourceHandler(request) match {
                 case Some(dynamicHandler) =>
-                  if (dynamicHandler.checkPermission(value, deadboltHandler, request)) action(request)
+                  if (dynamicHandler.checkPermission(permission, deadboltHandler, request)) action(request)
                   else deadboltHandler.onAuthFailure(request)
                 case None =>
-                  throw new RuntimeException("A custom pattern is specified but no dynamic resource handler is provided")
+                  // TODO this should probably be checked on startup
+                  throw new RuntimeException("A custom pattern is specified but " +
+                      "no dynamic resource handler is provided")
               }
           }
       }
@@ -186,7 +187,7 @@ trait DeadboltActions extends Results with BodyParsers {
    * @tparam A
    * @return
    */
-  def SubjectPresent[A](deadboltHandler: DeadboltHandler)(action: Action[A]): Action[A] =
+  def restrictToExistingUser[A](deadboltHandler: DeadboltHandler)(action: Action[A]): Action[A] =
     Action.async(action.parser) { implicit request =>
       deadboltHandler.beforeAuthCheck(request) match {
         case Some(result) => result
@@ -206,7 +207,7 @@ trait DeadboltActions extends Results with BodyParsers {
    * @tparam A
    * @return
    */
-  def SubjectNotPresent[A](deadboltHandler: DeadboltHandler)(action: Action[A]): Action[A] =
+  def restrictToNonExistingUser[A](deadboltHandler: DeadboltHandler)(action: Action[A]): Action[A] =
     Action.async(action.parser) { implicit request =>
       deadboltHandler.beforeAuthCheck(request) match {
         case Some(result) => result

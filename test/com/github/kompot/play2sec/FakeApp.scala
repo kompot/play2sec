@@ -13,8 +13,9 @@ import play.api.templates.Html
 import play.api.test.FakeApplication
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
-import com.github.kompot.play2sec.authorization.handler.CustomDeadboltHandler
-import com.github.kompot.play2sec.authorization.scala.DeadboltActions
+import com.github.kompot.play2sec.authorization.handler
+.{MyDynamicResourceHandler, CustomDeadboltHandler}
+import com.github.kompot.play2sec.authorization.scala.Play2secActions
 import com.github.kompot.play2sec.authorization.core.PatternType
 
 class FakeApp extends FakeApplication(
@@ -37,7 +38,9 @@ class FakeAppNoAutoMerge extends FakeApplication(
   additionalConfiguration = FakeApp.additionalConfiguration ++ FakeApp.noAutoMerge,
   additionalPlugins = FakeApp.additionalPlugins ++ FakeApp.normalUser)
 
-object FakeApp extends JsonWebConversions with DeadboltActions {
+object FakeApp extends JsonWebConversions with Play2secActions {
+  val securityHandler = new CustomDeadboltHandler(Some(new MyDynamicResourceHandler()))
+
   val routes: PartialFunction[(String, String), Handler] = {
     case ("GET", path: String) if path.startsWith("/auth/external/") =>
       Action.async { implicit request =>
@@ -133,31 +136,45 @@ object FakeApp extends JsonWebConversions with DeadboltActions {
         )
       }
     case ("GET", "/auth/authenticated-only") =>
-      SubjectPresent(new CustomDeadboltHandler()) { Action { implicit request =>
+      restrictToExistingUser(securityHandler) { Action { implicit request =>
         Results.Ok(Html(
           """
             <p>This page is visible only to authenticated users.</p>
           """.stripMargin))
       } }
     case ("GET", "/auth/not-authenticated-only") =>
-      SubjectNotPresent(new CustomDeadboltHandler()) { Action { implicit request =>
+      restrictToNonExistingUser(securityHandler) { Action { implicit request =>
         Results.Ok(Html(
           """
             <p>This page is visible only to not authenticated users.</p>
           """.stripMargin))
       } }
     case ("GET", "/auth/admin-only") =>
-      Restrictions(Array("admin", "!some-role"), new CustomDeadboltHandler()) { Action { implicit request =>
+      restrictTo(Array("admin", "!some-role"), securityHandler) { Action { implicit request =>
         Results.Ok(Html(
           """
             <p>This page is visible only to users with admin role.</p>
           """.stripMargin))
       } }
-    case ("GET", "/auth/admin-like") =>
-      Pattern(".*almighty.*|.*root.*", PatternType.REGEX, new CustomDeadboltHandler()) { Action { implicit request =>
+    case ("GET", "/auth/admin-role-exact") =>
+      restrictTo("black hawk", PatternType.EQUALITY, securityHandler) { Action { implicit request =>
+        Results.Ok(Html(
+          """
+            <p>This page is visible only to users with black hawk permission.</p>
+          """.stripMargin))
+      } }
+    case ("GET", "/auth/admin-role-like") =>
+      restrictTo(".*almighty.*|.*root.*", PatternType.REGEX, securityHandler) { Action { implicit request =>
         Results.Ok(Html(
           """
             <p>This page is visible only to users with admin-like permissions.</p>
+          """.stripMargin))
+      } }
+    case ("GET", "/auth/admin-role-custom") =>
+      restrictTo("let me in", PatternType.CUSTOM, securityHandler) { Action { implicit request =>
+        Results.Ok(Html(
+          """
+            <p>This page is visible only to users who's got permission starting with `let me in`.</p>
           """.stripMargin))
       } }
 
