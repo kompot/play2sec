@@ -24,38 +24,23 @@ import com.github.kompot.play2sec.authentication.user._
  * From https://developers.google.com/accounts/docs/OAuth2Login#userinfocall
  */
 class GoogleAuthUser(node: JsValue, info: GoogleAuthInfo, state: String)
-    extends BasicOAuth2AuthUser(node.\(GoogleAuthUser.Constants.ID).as[Option[String]].getOrElse(""), info, state)
+    extends BasicOAuth2AuthUser((node \ "id").as[Option[String]].getOrElse(""), info, state)
     with ExtendedIdentity with PicturedIdentity with ProfiledIdentity with LocaleIdentity {
 
-  val email =           node.\(GoogleAuthUser.Constants.EMAIL)            .as[Option[String]].getOrElse("")
-  val emailIsVerified = node.\(GoogleAuthUser.Constants.EMAIL_IS_VERIFIED).as[Option[Boolean]].getOrElse(false)
-  val name =            node.\(GoogleAuthUser.Constants.NAME)             .as[Option[String]].getOrElse("")
-  val firstName =       node.\(GoogleAuthUser.Constants.FIRST_NAME)       .as[Option[String]].getOrElse("")
-  val lastName =        node.\(GoogleAuthUser.Constants.LAST_NAME)        .as[Option[String]].getOrElse("")
-  val picture =         node.\(GoogleAuthUser.Constants.PICTURE)          .as[Option[String]].getOrElse("")
-  val gender =          node.\(GoogleAuthUser.Constants.GENDER)           .as[Option[String]].getOrElse("")
-  val loc =             node.\(GoogleAuthUser.Constants.LOCALE)           .as[Option[String]].getOrElse("")
-  val link =            node.\(GoogleAuthUser.Constants.LINK)             .as[Option[String]].getOrElse("")
+  val email =           (node \ "email")         .as[Option[String]].getOrElse("")
+  val emailIsVerified = (node \ "verified_email").as[Option[Boolean]].getOrElse(false)
+  val name =            (node \ "name")          .as[Option[String]].getOrElse("")
+  val firstName =       (node \ "given_name")    .as[Option[String]].getOrElse("")
+  val lastName =        (node \ "family_name")   .as[Option[String]].getOrElse("")
+  val picture =         (node \ "picture")       .as[Option[String]].getOrElse("")
+  val gender =          (node \ "gender")        .as[Option[String]].getOrElse("")
+  val loc =             (node \ "locale")        .as[Option[String]].getOrElse("")
+  val link =            (node \ "link")          .as[Option[String]].getOrElse("")
 
   override def provider = GoogleAuthProvider.PROVIDER_KEY
 
-  override def id = node.\(GoogleAuthUser.Constants.ID).as[Option[String]].getOrElse("")
+  override def id = (node \ "id").as[Option[String]].getOrElse("")
   def isEmailVerified = emailIsVerified
-  def profileLink = link
-  def locale = AuthUser.getLocaleFromString(loc).get
-}
-
-object GoogleAuthUser {
-  object Constants {
-    val ID = "id" // "00000000000000",
-    val EMAIL = "email" // "fred.example@gmail.com",
-    val EMAIL_IS_VERIFIED = "verified_email" // true,
-    val NAME = "name" // "Fred Example",
-    val FIRST_NAME = "given_name" // "Fred",
-    val LAST_NAME = "family_name" // "Example",
-    val PICTURE = "picture" // "https://lh5.googleusercontent.com/-2Sv-4bBMLLA/AAAAAAAAAAI/AAAAAAAAABo/bEG4kI2mG0I/photo.jpg",
-    val GENDER = "gender" // "male",
-    val LOCALE = "locale" // "en-US"
-    val LINK = "link" // "https://plus.google.com/107424373956322297554"
-  }
+  override def profileLink = link
+  override def locale = AuthUser.getLocaleFromString(loc).get
 }

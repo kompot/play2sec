@@ -126,8 +126,12 @@ abstract class OAuth2AuthProvider[U <: BasicOAuth2AuthUser, I <: OAuth2AuthInfo]
           throw new AuthException(e)
         }
       }
-      case (_, Some(c), _) => Future.successful(new LoginSignupResult(
-        transform(getAccessToken(c, request), state)))
+      case (_, Some(c), _) =>
+        for {
+          tr <- transform(getAccessToken(c, request), state)
+        } yield {
+          new LoginSignupResult(tr)
+        }
       case _ => {
         // no auth, yet
         val url = getAuthUrl(request, state)
@@ -147,7 +151,7 @@ abstract class OAuth2AuthProvider[U <: BasicOAuth2AuthUser, I <: OAuth2AuthInfo]
    * @throws AuthException
    */
   @throws(classOf[AuthException])
-  protected def transform(info: Future[I], state: String): U
+  protected def transform(info: Future[I], state: String): Future[U]
 }
 
 object OAuth2AuthProvider {

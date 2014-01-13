@@ -35,11 +35,11 @@ import play.api.libs.json.JsUndefined
 class FacebookAuthProvider(app: play.api.Application) extends OAuth2AuthProvider[FacebookAuthUser, FacebookAuthInfo](app) {
   override val key = FacebookAuthProvider.PROVIDER_KEY
 
-  protected override def transform(info: Future[FacebookAuthInfo], state: String): FacebookAuthUser = {
-    val futureUser = for {
+  protected override def transform(info: Future[FacebookAuthInfo], state: String): Future[FacebookAuthUser] =
+    for {
       fai <- info
       r <- WS
-          .url(providerConfig.getString(FacebookAuthProvider.USER_INFO_URL_SETTING_KEY).get)
+          .url(providerConfig.getString("userInfoUrl").get)
           .withQueryString((OAuth2AuthProvider.Constants.ACCESS_TOKEN, fai.accessToken)).get()
     } yield {
       if (r.json.\(OAuth2AuthProvider.Constants.ERROR).isInstanceOf[JsUndefined]) {
@@ -48,28 +48,26 @@ class FacebookAuthProvider(app: play.api.Application) extends OAuth2AuthProvider
         throw new AuthException(r.json.\(OAuth2AuthProvider.Constants.ERROR).toString())
       }
     }
-    // TODO: get rid of Await
-    Await.result(futureUser, 10 seconds)
-  }
 
-  protected override def buildInfo(fr: Future[Response]): Future[FacebookAuthInfo] = {
-    fr.map { r: Response =>
+  protected override def buildInfo(fr: Future[Response]): Future[FacebookAuthInfo] =
+    for {
+      r <- fr
+    } yield {
+      Logger.info(key + " response status is " + r.status + " and content is " + r.body)
       if (r.status != 200) {
-        Logger.warn("facebook response is not OK, it is = " + r.body)
-        throw new AccessTokenException(r.json.\("error").\("message").toString())
+        throw new AccessTokenException(s"Unable to create $key auth info from response " + r)
       }
-      val query: String = r.body
-      Logger.info(query)
-      val pairs: List[NameValuePair] = URLEncodedUtils.parse(URI.create("/?" + query), "utf-8").toList
+      val body: String = r.body
+      Logger.info(body)
+      val pairs = URLEncodedUtils.parse(URI.create("/?" + body), "utf-8").toList
       if (pairs.size < 2) {
         throw new AccessTokenException()
       }
-      new FacebookAuthInfo(pairs.map { kv => (kv.getName, kv.getValue) }.toMap[String, String])
+      new FacebookAuthInfo(pairs.map(kv => (kv.getName, kv.getValue)).toMap[String, String])
     }
-  }
+
 }
 
 object FacebookAuthProvider {
   val PROVIDER_KEY = "facebook"
-  private val USER_INFO_URL_SETTING_KEY = "userInfoUrl"
 }

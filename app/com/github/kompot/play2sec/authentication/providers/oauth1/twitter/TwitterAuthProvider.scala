@@ -37,27 +37,23 @@ OAuth1AuthProvider[TwitterAuthUser, TwitterAuthInfo](app) {
   override val key = TwitterAuthProvider.PROVIDER_KEY
 
   @throws(classOf[AuthException])
-  override def transform(info: TwitterAuthInfo): TwitterAuthUser = {
+  override def transform(info: TwitterAuthInfo): Future[TwitterAuthUser] = {
     val url = providerConfig.getString(USER_INFO_URL_SETTING_KEY).get
-
     val token = new RequestToken(info.token, info.tokenSecret)
     val c = providerConfig
     val cK = new ConsumerKey(
       c.getString(OAuth1AuthProvider.SettingKeys.CONSUMER_KEY).get,
       c.getString(OAuth1AuthProvider.SettingKeys.CONSUMER_SECRET).get)
-    val futureUser = for {
+    for {
       r <- WS.url(url).sign(new OAuthCalculator(cK, token)).get()
     } yield {
       new TwitterAuthUser(r.json, info)
     }
-    // TODO: get rid of Await, make it work with futures
-    Await.result(futureUser, 10 seconds)
   }
 
   @throws(classOf[AccessTokenException])
-  override def buildInfo(rtoken: RequestToken): TwitterAuthInfo = {
+  override def buildInfo(rtoken: RequestToken): TwitterAuthInfo =
     new TwitterAuthInfo(rtoken.token, rtoken.secret)
-  }
 
 }
 

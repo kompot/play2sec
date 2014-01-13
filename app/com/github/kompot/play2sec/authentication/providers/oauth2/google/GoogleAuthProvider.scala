@@ -27,53 +27,48 @@ import com.github.kompot.play2sec.authentication.providers.oauth2
 .OAuth2AuthProvider
 import com.github.kompot.play2sec.authentication.exceptions
 .{AccessTokenException, AuthException}
+import play.api.libs.json.JsUndefined
 
 class GoogleAuthProvider(app: Application)
     extends OAuth2AuthProvider[GoogleAuthUser, GoogleAuthInfo](app) {
 
-  val USER_INFO_URL_SETTING_KEY = "userInfoUrl"
-
   override val key = GoogleAuthProvider.PROVIDER_KEY
 
-  protected override def transform(info: Future[GoogleAuthInfo], state: String): GoogleAuthUser = {
-    val futureUser = for {
+  protected override def transform(info: Future[GoogleAuthInfo], state: String): Future[GoogleAuthUser] =
+    for {
       i <- info
-      r <- WS.url(providerConfig.getString(USER_INFO_URL_SETTING_KEY).get)
+      r <- WS.url(providerConfig.getString("userInfoUrl").get)
           .withQueryString((OAuth2AuthProvider.Constants.ACCESS_TOKEN, i.accessToken))
           .get()
     } yield {
-      val err = r.json.\(OAuth2AuthProvider.Constants.ERROR).as[Option[String]].getOrElse(null)
-      if (err != null) {
-        throw new AuthException(err)
-      } else {
+      if (r.json.\(OAuth2AuthProvider.Constants.ERROR).isInstanceOf[JsUndefined]) {
         new GoogleAuthUser(r.json, i, state)
+      } else {
+        throw new AuthException(r.json.\(OAuth2AuthProvider.Constants.ERROR).toString())
       }
     }
-    Await.result(futureUser, 10 seconds)
-  }
 
   @throws(classOf[AccessTokenException])
-  protected override def buildInfo(fr: Future[Response]): Future[GoogleAuthInfo] = {
+  protected override def buildInfo(fr: Future[Response]): Future[GoogleAuthInfo] =
     for {
       r <- fr
     } yield {
-      Logger.info("google response status is " + r.status + " and content is " + r.body)
+      Logger.info(key + " response status is " + r.status + " and content is " + r.body)
       // TODO: google sometimes returns error (in html)
       // and r.json fails with
       // JsonParseException: Unexpected character ('<' (code 60)): expected a valid value (number, String, array, object, 'true', 'false' or 'null')
       // at [Source: [B@136c16e; line: 1, column: 2]]
       // how to fix that?
       if (r.status != 200) {
-        throw new AccessTokenException("Unable to create GoogleAuthInfo from response " + r)
+        throw new AccessTokenException(s"Unable to create $key auth info from response " + r)
       }
-      val err = r.json.\(OAuth2AuthProvider.Constants.ERROR).as[Option[String]].getOrElse(null)
-      if (err != null) {
-        throw new AccessTokenException(err)
-      } else {
+      if (r.json.\(OAuth2AuthProvider.Constants.ERROR).isInstanceOf[JsUndefined]) {
         new GoogleAuthInfo(r.json)
+      } else {
+        throw new AccessTokenException(r.json.\(OAuth2AuthProvider.Constants.ERROR).toString())
       }
     }
-  }
+
 }
 
 object GoogleAuthProvider {

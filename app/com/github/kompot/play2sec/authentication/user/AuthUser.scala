@@ -21,7 +21,7 @@ import org.apache.commons.lang3.LocaleUtils
 
 trait AuthUser extends AuthUserIdentity {
   def expires = AuthUser.NO_EXPIRATION
-  
+
   def confirmedRightAway = false
 
   override def toString = AuthUser.toString(this)
@@ -50,19 +50,15 @@ object AuthUser {
     val sb = new StringBuilder
     identity match {
       case i2: NameIdentity =>
-        if (i2.name != null) {
-          sb.append(i2.name)
-          sb.append(" ")
-        }
+        sb.append(i2.name)
+        sb.append(" ")
       case _ =>
     }
     identity match {
       case i2: EmailIdentity =>
-        if (i2.email != null) {
-          sb.append("(")
-          sb.append(i2.email)
-          sb.append(") ")
-        }
+        sb.append("(")
+        sb.append(i2.email)
+        sb.append(") ")
       case _ =>
     }
     if (sb.length == 0) {
@@ -70,7 +66,6 @@ object AuthUser {
     }
     sb.append(" @ ")
     sb.append(identity.provider)
-
     sb.toString()
   }
 }

@@ -71,14 +71,16 @@ trait Play2secActions extends Results with BodyParsers {
       deadboltHandler.beforeAuthCheck(request) match {
         case Some(result) => result
         case _ =>
-          if (roleGroups.isEmpty) deadboltHandler.onAuthFailure(request)
-          else
+          if (roleGroups.isEmpty) {
+            deadboltHandler.onAuthFailure(request)
+          } else {
             deadboltHandler.getSubject(request) match {
               case Some(subject) =>
                 if (check(subject, roleGroups.head, roleGroups.tail)) action(request)
                 else deadboltHandler.onAuthFailure(request)
               case _ => deadboltHandler.onAuthFailure(request)
             }
+          }
       }
     }
   }
@@ -127,10 +129,8 @@ trait Play2secActions extends Results with BodyParsers {
         case _ =>
           deadboltHandler.getDynamicResourceHandler(request) match {
             case Some(dynamicHandler) =>
-              if (dynamicHandler.isAllowed(zone.getClass.getSimpleName, form, deadboltHandler, request))
-                action(request)
-              else
-                deadboltHandler.onAuthFailure(request)
+              if (dynamicHandler.isAllowed(zone.getClass.getSimpleName, form, deadboltHandler, request)) action(request)
+              else deadboltHandler.onAuthFailure(request)
             case None =>
               throw new RuntimeException("A dynamic resource is specified but no dynamic resource handler is provided")
           }
@@ -153,28 +153,26 @@ trait Play2secActions extends Results with BodyParsers {
       Cache.getOrElse("Deadbolt." + patternValue)(java.util.regex.Pattern.compile(patternValue))
 
     Action.async(action.parser) { implicit request =>
-      deadboltHandler.beforeAuthCheck(request) match {
-        case Some(result) => result
-        case _ =>
-          val subject = deadboltHandler.getSubject(request)
-          patternType match {
-            case PatternType.EQUALITY =>
-              if (DeadboltAnalyzer.checkPatternEquality(subject, permission)) action(request)
-              else deadboltHandler.onAuthFailure(request)
-            case PatternType.REGEX =>
-              if (DeadboltAnalyzer.checkRegexPattern(subject, getPattern(permission))) action(request)
-              else deadboltHandler.onAuthFailure(request)
-            case PatternType.CUSTOM =>
-              deadboltHandler.getDynamicResourceHandler(request) match {
-                case Some(dynamicHandler) =>
-                  if (dynamicHandler.checkPermission(permission, deadboltHandler, request)) action(request)
-                  else deadboltHandler.onAuthFailure(request)
-                case None =>
-                  // TODO this should probably be checked on startup
-                  throw new RuntimeException("A custom pattern is specified but " +
-                      "no dynamic resource handler is provided")
-              }
-          }
+      deadboltHandler.beforeAuthCheck(request).map(res => res).getOrElse {
+        val subject = deadboltHandler.getSubject(request)
+        patternType match {
+          case PatternType.EQUALITY =>
+            if (DeadboltAnalyzer.checkPatternEquality(subject, permission)) action(request)
+            else deadboltHandler.onAuthFailure(request)
+          case PatternType.REGEX =>
+            if (DeadboltAnalyzer.checkRegexPattern(subject, getPattern(permission))) action(request)
+            else deadboltHandler.onAuthFailure(request)
+          case PatternType.CUSTOM =>
+            deadboltHandler.getDynamicResourceHandler(request) match {
+              case Some(dynamicHandler) =>
+                if (dynamicHandler.checkPermission(permission, deadboltHandler, request)) action(request)
+                else deadboltHandler.onAuthFailure(request)
+              case None =>
+                // TODO this should probably be checked on startup
+                throw new RuntimeException("A custom pattern is specified but " +
+                    "no dynamic resource handler is provided")
+            }
+        }
       }
     }
   }

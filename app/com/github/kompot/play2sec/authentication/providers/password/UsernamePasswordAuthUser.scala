@@ -40,12 +40,7 @@ abstract class UsernamePasswordAuthUser(clearPassword: String, email: String)
    * You *SHOULD* provide your own implementation of this which implements your own security.
    */
   def checkPassword(hashed: Option[String], candidate: String): Boolean = {
-    // TODO: remove null checking?
-    if (hashed == null || candidate == null || hashed == None) {
-      false
-    } else {
-      Logger.info(s"hashed $hashed candidate $candidate")
-      BCrypt.checkpw(candidate, hashed.get)
-    }
+    Logger.info(s"Checking password; hashed $hashed candidate $candidate")
+    hashed.exists(BCrypt.checkpw(candidate, _))
   }
 }

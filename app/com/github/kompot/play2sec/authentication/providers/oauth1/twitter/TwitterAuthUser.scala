@@ -24,7 +24,7 @@ LocaleIdentity, PicturedIdentity}
 import play.api.Logger
 
 class TwitterAuthUser(node: JsValue, info: OAuth1AuthInfo)
-    extends BasicOAuth1AuthUser(node.\(TwitterAuthUser.Constants.ID).as[Option[Int]].getOrElse(0).toString, info, null)
+    extends BasicOAuth1AuthUser(node.\(TwitterAuthUser.Constants.ID).as[Option[Int]].getOrElse(0).toString, info, "")
     with PicturedIdentity with LocaleIdentity {
   import TwitterAuthUser._
 

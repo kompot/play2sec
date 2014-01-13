@@ -16,7 +16,7 @@
 
 package com.github.kompot.play2sec.authentication.providers.oauth2.vkontakte
 
-import play.api.Application
+import play.api.{Logger, Application}
 import play.api.libs.ws.{Response, WS}
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
@@ -35,8 +35,8 @@ class VkontakteAuthProvider(app: Application)
 
   override val key = VkontakteAuthProvider.PROVIDER_KEY
 
-  protected override def transform(info: Future[VkontakteAuthInfo], state: String): VkontakteAuthUser = {
-    val futureUser = for {
+  protected override def transform(info: Future[VkontakteAuthInfo], state: String): Future[VkontakteAuthUser] =
+    for {
       i <- info
       r <- WS.url(providerConfig.getString(USER_INFO_URL_SETTING_KEY).get)
           .withQueryString((OAuth2AuthProvider.Constants.ACCESS_TOKEN, i.accessToken))
@@ -47,32 +47,24 @@ class VkontakteAuthProvider(app: Application)
       } else {
         throw new AuthException(r.json.\(OAuth2AuthProvider.Constants.ERROR).toString())
       }
-//      val err = r.json.\(OAuth2AuthProvider.Constants.ERROR).as[Option[String]].getOrElse(null)
-//      if (err != null) {
-//        throw new AuthException(err)
-//      } else {
-//
-//      }
     }
-    Await.result(futureUser, 10 seconds)
-  }
 
   @throws(classOf[AccessTokenException])
-  protected override def buildInfo(fr: Future[Response]): Future[VkontakteAuthInfo] = {
+  protected override def buildInfo(fr: Future[Response]): Future[VkontakteAuthInfo] =
+    // TODO generalize first 7 lines of this method (same as in Facebook and Goole providers)
     for {
       r <- fr
     } yield {
+      Logger.info(key + " response status is " + r.status + " and content is " + r.body)
       if (r.status != 200) {
-        throw new AccessTokenException("Unable to create GoogleAuthInfo from response " + r)
+        throw new AccessTokenException(s"Unable to create $key auth info from response " + r)
       }
-      val err = r.json.\(OAuth2AuthProvider.Constants.ERROR).as[Option[String]].getOrElse(null)
-      if (err != null) {
-        throw new AccessTokenException(err)
-      } else {
+      if (r.json.\(OAuth2AuthProvider.Constants.ERROR).isInstanceOf[JsUndefined]) {
         new VkontakteAuthInfo(r.json)
+      } else {
+        throw new AccessTokenException(r.json.\(OAuth2AuthProvider.Constants.ERROR).toString())
       }
     }
-  }
 }
 
 object VkontakteAuthProvider {

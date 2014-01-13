@@ -70,13 +70,13 @@ abstract class OAuth1AuthProvider[U <: BasicOAuth1AuthUser, I <: OAuth1AuthInfo]
       val rtoken = com.github.kompot.play2sec.authentication.removeFromCache(request.session, CACHE_TOKEN).asInstanceOf[Option[RequestToken]]
       val verifier = request.getQueryString(Constants.OAUTH_VERIFIER)
 
-      val b = service.retrieveAccessToken(rtoken.get, verifier.getOrElse("")).fold(e => {
-        throw new AuthException(e.getLocalizedMessage)
-      }, token => {
-        val i: I = buildInfo(token)
-        transform(i)
-      })
-      Future.successful(new LoginSignupResult(b))
+      for {
+        res <- service.retrieveAccessToken(rtoken.get, verifier.getOrElse("")).fold(e => {
+          throw new AuthException(e.getLocalizedMessage)
+        }, token => transform(buildInfo(token)))
+      } yield {
+        new LoginSignupResult(res)
+      }
     } else {
       val callbackURL = getRedirectUrl(request)
       val res = service.retrieveRequestToken(callbackURL).fold(e => {
@@ -97,7 +97,7 @@ abstract class OAuth1AuthProvider[U <: BasicOAuth1AuthUser, I <: OAuth1AuthInfo]
    * provide their own implementation
    */
   @throws(classOf[AuthException])
-  def transform(identity: I): U
+  def transform(identity: I): Future[U]
 }
 
 object OAuth1AuthProvider {
