@@ -1,15 +1,13 @@
 package mock
 
 import com.github.kompot.play2sec.authentication.service.UserService
-import model.RemoteUserProvider
-import com.github.kompot.play2sec.authentication.user.{ExtendedIdentity,
-AuthUserIdentity, AuthUser}
+import model.{Await, RemoteUserProvider, User, RemoteUser}
+import com.github.kompot.play2sec.authentication.user.{NameIdentity,
+ExtendedIdentity, AuthUserIdentity, AuthUser}
 import play.api.mvc.Request
 import scala.concurrent.{ExecutionContext, Future}
 import com.github.kompot.play2sec.authentication.providers.password
 .{UsernamePasswordAuthProvider, UsernamePasswordAuthUser}
-import model.User
-import model.RemoteUser
 import scala.Some
 import ExecutionContext.Implicits.global
 import com.github.kompot.play2sec.authentication.providers
@@ -51,7 +49,7 @@ class UserStore extends KvStore with UserService {
             isConfirmed = newUser.confirmedRightAway)
           val updUser = u.get.copy(remoteUsers = (u.get.remoteUsers + newRu).toSet)
           put(updUser._id, updUser)
-          old
+          newUser
         }
       }
     }
