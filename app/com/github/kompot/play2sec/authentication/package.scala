@@ -64,6 +64,8 @@ package object authentication {
 
   def getUser[A](request: Request[A]): Option[AuthUser] = getUser(request.session)
 
+  def getUserService: UserService = use[PlaySecPlugin].userService
+
   def link[A](request: Request[A], link: Boolean): Future[SimpleResult] =
     getLinkUser(request.session) match {
       case None =>
@@ -116,7 +118,7 @@ package object authentication {
          case LoginSignupResult(_, _, Some(authUser), _) =>
            // TODO blocking
            import scala.concurrent.duration._
-           Await.result(processUser(request, auth.authUser.get), 10.second)
+           Await.result(processUser(request, authUser), 10.second)
        }
 
   /**
@@ -246,8 +248,6 @@ package object authentication {
       case Some(user) => Some(user.asInstanceOf[AuthUser])
     }
 
-  private[play2sec] def getUserService: UserService = use[PlaySecPlugin].userService
-
   private def isAccountAutoLink     = getConfiguration.flatMap(_.getBoolean(
     CFG_ACCOUNT_AUTO_LINK)).getOrElse(false)
 
@@ -308,13 +308,13 @@ package object authentication {
     }
 
   private def processUser[A](request: Request[A], newUser: AuthUser): Future[SimpleResult] = {
-    Logger.info("User identity found.")
+    Logger.info("User identity found." + newUser)
     val oldUser = getUser(request.session)
     val loggedIn = isLoggedIn(request.session)
     for {
       oldIdentity <-
-      if (loggedIn) getUserService.getByAuthUserIdentity(oldUser.get)
-      else Future.successful(None)
+        if (loggedIn) getUserService.getByAuthUserIdentity(oldUser.get)
+        else Future.successful(None)
       newIdentity <- getUserService.getByAuthUserIdentity(newUser)
       chosenPath <- choosePath(request, loggedIn, oldIdentity, newIdentity, oldUser, newUser)
     } yield {

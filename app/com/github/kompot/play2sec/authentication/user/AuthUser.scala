@@ -61,6 +61,20 @@ object AuthUser {
         sb.append(") ")
       case _ =>
     }
+    identity match {
+      case i: LocaleIdentity =>
+        sb.append("preferred locale is")
+        sb.append(i.locale)
+        sb.append(", ")
+      case _ =>
+    }
+    identity match {
+      case i: ProfiledIdentity =>
+        sb.append("profile is located at ")
+        sb.append(i.profileLink)
+        sb.append(", ")
+      case _ =>
+    }
     if (sb.length == 0) {
       sb.append(identity.id)
     }
