@@ -105,10 +105,6 @@ class MyUsernamePasswordAuthProvider(app: play.Application)
     }
   }
 
-  protected def userExists(authUser: UsernamePasswordAuthUser) = Call("GET", "/auth/user-exists")
-
-  protected def userUnverified(authUser: UsernamePasswordAuthUser) = Call("GET", "/auth/user-unverified")
-
   protected def generateSignupVerificationRecord(user: MyUsernamePasswordAuthUser) = {
     Await(tokenService.generateToken(user, Json.obj("email" -> JsString(user.email))))
   }
@@ -139,28 +135,6 @@ class MyUsernamePasswordAuthProvider(app: play.Application)
 //    routes.Authorization.verifyEmailAndLogin(token.securityKey).absoluteURL()(request)
   }
 
-//  private def getResetPasswordLink[A](verificationRecord: Token, user: MyUsernamePasswordAuthUser, request: Request[A]): String = {
-//    routes.Authorization.resetPassword(verificationRecord.securityKey).absoluteURL()(request)
-//  }
-
-  protected def userExistsJson(authUser: UsernamePasswordAuthUser) =
-    BadRequest[JsValue](JsResponseError(
-      "User with such credentials already exists."))
-
-  def userSignupUnverifiedJson(user: MyUsernamePasswordAuthUser) =
-    Ok[JsValue](
-      JsResponseOk("Email has been sent. You must confirm it.")
-    )
-
-  def userLoginUnverifiedJson(value: MyLoginUsernamePasswordAuthUser) =
-    BadRequest[JsValue](JsResponseError("Email was not verified, please check your mail."))
-
-  protected def onLoginUserNotFoundJson[A](request: Request[A]) =
-    BadRequest[JsValue](JsResponseError("Unknown email or password."))
-
-  protected def onSuccessfulRecoverPasswordJson[A]() =
-    Ok[JsValue](JsResponseOk(
-      "Please follow instructions in the email."))
 }
 
 object MyUsernamePasswordAuthProvider {

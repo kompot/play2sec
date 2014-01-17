@@ -69,7 +69,7 @@ class LoginPasswordTest extends PlaySpecification {
     browser.click("input[type = 'submit']")
 
     browser.await().atMost(1000)
-    browser.url.contains("/auth/user-unverified") mustEqual true
+    browser.url.contains("/auth/user-login-unverified") mustEqual true
 
     val link = StringUtils.getFirstLinkByContent(
       MailServer.boxes("kompotik@gmail.com").findByContent("verify-email")(0).body, "verify-email").get

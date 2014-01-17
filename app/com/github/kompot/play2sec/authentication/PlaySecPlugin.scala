@@ -38,6 +38,16 @@ trait PlaySecPlugin extends Plugin {
 
   def afterLogout[A](a: A): SimpleResult
 
+  def userExists[A](a: A): SimpleResult
+
+  def userLoginUnverified[A](a: A): SimpleResult
+
+  def userSignupUnverified[A](a: A): SimpleResult
+
+  def userNotFound[A](a: A): SimpleResult
+
+  def passwordRecoveryRequestSuccessful[A](a: A): SimpleResult
+
   def auth(provider: String): Call
 
   def login: Call

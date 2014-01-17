@@ -22,14 +22,15 @@ import UsernamePasswordAuthProvider._
 import play.api.Logger
 import play.api.libs.json._
 import play.api.libs.functional.syntax._
-import play.api.mvc.Call
-import play.api.mvc.AnyContentAsJson
 import com.github.kompot.play2sec.authentication.{PlaySecPlugin, MailService}
-import com.github.kompot.play2sec.authentication.providers.AuthProvider
 import com.github.kompot.play2sec.{authentication => atn}
 import com.github.kompot.play2sec.authentication.user.NameIdentity
 import scala.concurrent.{ExecutionContext, Future}
 import ExecutionContext.Implicits.global
+import com.typesafe.plugin._
+import com.github.kompot.play2sec.authentication.providers.AuthProvider
+import scala.Some
+import play.api.mvc.SimpleResult
 
 abstract class UsernamePasswordAuthProvider[V, UL <: UsernamePasswordAuthUser,
     US <: UsernamePasswordAuthUser, UR <: UsernamePasswordAuthUser,
@@ -67,13 +68,9 @@ abstract class UsernamePasswordAuthProvider[V, UL <: UsernamePasswordAuthUser,
     val login: R = getRecover(request)
     val authUser: UR = buildResetPasswordAuthUser(login, request)
     sendResetPasswordEmail(request, authUser)
-    if (request.body.isInstanceOf[AnyContentAsJson]) {
-      Future.successful(new LoginSignupResult(onSuccessfulRecoverPasswordJson()))
-    } else {
-      // TODO where to redirect?
-      // userUnverified(authUser).url
-      Future.successful(new LoginSignupResult("/"))
-    }
+    Future.successful(
+      new LoginSignupResult(use[PlaySecPlugin].passwordRecoveryRequestSuccessful(request))
+    )
   }
 
   private def processLogin[A](request: Request[A]): Future[LoginSignupResult] = {
@@ -87,28 +84,21 @@ abstract class UsernamePasswordAuthProvider[V, UL <: UsernamePasswordAuthUser,
     } yield {
       Logger.info("Login result is " + r)
       r match {
-        // The email of the user is not verified, yet -
-        // we won't allow him to log in
+        // The email of the user is not verified
+        // should not allow to log in
         case USER_UNVERIFIED =>
-          if (request.body.isInstanceOf[AnyContentAsJson]) {
-            new LoginSignupResult(userLoginUnverifiedJson(authUser))
-          } else {
-            new LoginSignupResult(userUnverified(authUser).url)
-          }
+          new LoginSignupResult(use[PlaySecPlugin].userLoginUnverified(request))
         // The user exists and the given password was correct
-        case USER_LOGGED_IN => new LoginSignupResult(authUser)
+        case USER_LOGGED_IN =>
+          new LoginSignupResult(authUser)
         // don't expose this - it might harm users privacy if anyone
         // knows they signed up for our service
         // forward to login page
         case WRONG_PASSWORD | NOT_FOUND =>
-          // TODO: more elegant way to check this?
-          if (request.body.isInstanceOf[AnyContentAsJson]) {
-            new LoginSignupResult(onLoginUserNotFoundJson(request))
-          } else {
-            new LoginSignupResult(onLoginUserNotFound(request))
-          }
+          new LoginSignupResult(use[PlaySecPlugin].userNotFound(request))
         // TODO replace with error fallback URL
-        case _ => new LoginSignupResult("/")
+        case _ =>
+          new LoginSignupResult("/")
       }
     }
   }
@@ -123,39 +113,22 @@ abstract class UsernamePasswordAuthProvider[V, UL <: UsernamePasswordAuthUser,
       Logger.info("Signup result is " + r)
       r match {
         case USER_EXISTS =>
-          // TODO: more elegant way to check this?
-          if (request.body.isInstanceOf[AnyContentAsJson]) {
-            new LoginSignupResult(userExistsJson(authUser))
-          } else {
-            new LoginSignupResult(userExists(authUser).url)
-          }
+          new LoginSignupResult(use[PlaySecPlugin].userExists(request))
         case USER_EXISTS_UNVERIFIED | USER_CREATED_UNVERIFIED =>
           // User got created as unverified
           // Send validation email
           sendVerifyEmailMailing(request, authUser)
-          // TODO: more elegant way to check this?
-          if (request.body.isInstanceOf[AnyContentAsJson]) {
-            new LoginSignupResult(userSignupUnverifiedJson(authUser))
-          } else {
-            new LoginSignupResult(userUnverified(authUser).url)
-          }
-        case USER_CREATED => new LoginSignupResult(authUser)
-        // TODO replace with error fallback URL
-        case _ => new LoginSignupResult("/")
+          new LoginSignupResult(use[PlaySecPlugin].userSignupUnverified(request))
+        case USER_CREATED =>
+          new LoginSignupResult(authUser)
+        case _ =>
+          // TODO replace with some configurable URL
+          new LoginSignupResult("/")
       }
     }
   }
 
   override val isExternal = false
-
-  // TODO used?
-//  override def getSessionAuthUser(id: String, expires: Long): AuthUser
-
-  protected def onLoginUserNotFound[A](request: Request[A]): String = com.typesafe.plugin.use[PlaySecPlugin].login.url
-
-  protected def onLoginUserNotFoundJson[A](request: Request[A]): SimpleResult
-
-  protected def onSuccessfulRecoverPasswordJson[A](): SimpleResult
 
   private def getSignup[A](request: Request[A]): S = getSignupForm.bindFromRequest()(request).get
 
@@ -196,12 +169,6 @@ abstract class UsernamePasswordAuthProvider[V, UL <: UsernamePasswordAuthUser,
   protected def getVerifiedEmailTuple(email: String): L
   protected def loginUser(authUser: UL): Future[LoginResult.Value]
   protected def signupUser[A](user: US, request: Request[A]): Future[SignupResult.Value]
-  protected def userExists(authUser: UsernamePasswordAuthUser): Call
-  @deprecated("User single userExists", "0.0.2")
-  protected def userExistsJson(authUser: UsernamePasswordAuthUser): SimpleResult
-  protected def userUnverified(authUser: UsernamePasswordAuthUser): Call
-  protected def userSignupUnverifiedJson(user: US): SimpleResult
-  protected def userLoginUnverifiedJson(value: UL): SimpleResult
   protected def generateSignupVerificationRecord(user: US): V
   protected def generateResetPasswordVerificationRecord(user: UR): V
   protected def getVerifyEmailMailingSubject[A](user: US, request: Request[A]): String
